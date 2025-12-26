@@ -6,22 +6,22 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { CommonResponse } from './swagger/common-response';
+import { CommonResponse } from '../swagger/common-response';
 import { Response as ExpressResponse } from 'express';
-import { ResponseFromService } from './types';
+import { ResponseFromService } from '../types';
 
 @Injectable()
 export class TransformInterceptor<T>
-  implements NestInterceptor<T, CommonResponse>
+  implements NestInterceptor<T, CommonResponse<T>>
 {
   intercept(
     context: ExecutionContext,
     next: CallHandler,
-  ): Observable<CommonResponse> {
+  ): Observable<CommonResponse<T>> {
     const response = context.switchToHttp().getResponse<ExpressResponse>();
 
     return next.handle().pipe(
-      map((data?: ResponseFromService) => ({
+      map((data?: ResponseFromService<T>) => ({
         status: response.statusCode,
         success: true,
         message: data ? data.message : 'Operation successfully',

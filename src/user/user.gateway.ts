@@ -14,7 +14,7 @@ import { Server, Socket } from 'socket.io';
 import { WsAuthGuard } from 'src/auth/guards/ws-auth.guard';
 import { handleWsConnection } from 'src/utils/helpers/handle-ws-connection';
 import { handleWsDisconnection } from 'src/utils/helpers/handle-ws-disconnection';
-import { WsAuthExceptionFilter } from 'src/utils/ws-auth-exception.filter';
+import { WsAuthExceptionFilter } from 'src/utils/exception-filters/ws-auth-exception.filter';
 
 interface ServerToClientEvents {
   usersActive: (

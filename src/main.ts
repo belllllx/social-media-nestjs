@@ -3,8 +3,9 @@ import { AppModule } from './app.module';
 import { HttpStatus, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { CommonResponse } from './utils/swagger/common-response';
-import { HttpExceptionFilter } from './utils/http-exception.filter';
-import { TransformInterceptor } from './utils/transform.interceptor';
+import { HttpExceptionFilter } from './utils/exception-filters/http-exception.filter';
+import { TransformInterceptor } from './utils/interceptors/transform.interceptor';
+import { LoggingInterceptor } from './utils/interceptors/logging.interceptor';
 import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
@@ -30,7 +31,10 @@ async function bootstrap() {
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, documentFactory);
 
-  app.useGlobalInterceptors(new TransformInterceptor());
+  app.useGlobalInterceptors(
+    new TransformInterceptor(),
+    new LoggingInterceptor(),
+  );
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalPipes(
     new ValidationPipe({

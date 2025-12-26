@@ -1,6 +1,6 @@
 import { IsInt, IsNotEmpty, IsString } from 'class-validator';
 import { NotificationType } from 'generated/prisma';
-import { IsNotificationType } from 'src/utils/decorators/is-notification-type';
+import { IsNotificationType } from 'src/utils/decorators/is-notification-type.decorator';
 
 export class CreateNotificationDto {
   @IsNotificationType({ message: 'Invalid notification type' })

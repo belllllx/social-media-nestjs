@@ -36,12 +36,17 @@ export type FileDir =
   | 'chat-image'
   | 'chat-video';
 
-export interface ResponseFromService {
+export interface ResponseFromService<T = any> {
   message: string;
-  data?: Object | string | Array<any>;
+  data?: T;
 }
 
 export interface ICookieObject {
   access_token: string;
   refresh_token: string;
+}
+
+export interface ITokenObject {
+  accessToken: string;
+  refreshToken: string;
 }

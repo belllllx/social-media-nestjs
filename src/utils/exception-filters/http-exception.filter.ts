@@ -7,8 +7,8 @@ import {
 import {
   Response as ExpressResponse,
 } from 'express';
-import { CommonResponse } from './swagger/common-response';
-import { isObjectExceptionResponse, isStringExceptionResponse } from './helpers/predicate-exception-response';
+import { CommonResponse } from '../swagger/common-response';
+import { isObjectExceptionResponse, isStringExceptionResponse } from '../helpers/predicate-exception-response';
 
 @Catch(HttpException)
 export class HttpExceptionFilter implements ExceptionFilter {
