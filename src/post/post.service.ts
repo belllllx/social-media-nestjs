@@ -86,6 +86,11 @@ export class PostService {
         }),
       );
 
+      const createFileRecordsData = createFileRecords(filesUrl, ContentType.POST);
+      await this.prismaService.file.createMany({
+        data: createFileRecordsData,
+      });
+
       return {
         filesUrl,
       };
@@ -152,8 +157,8 @@ export class PostService {
       if (filesUrl && filesUrl.length) {
         const postFileRecords = createFileRecords(
           filesUrl,
-          post.id,
           ContentType.POST,
+          post.id,
         );
         await this.prismaService.file.createMany({
           data: postFileRecords,
@@ -586,8 +591,8 @@ export class PostService {
 
         const createFileRecordsData = createFileRecords(
           filesUrlS3,
-          post.id,
           ContentType.POST,
+          post.id,
         );
         await this.prismaService.file.createMany({
           data: createFileRecordsData,
@@ -666,21 +671,22 @@ export class PostService {
     }
   }
 
-  async deleteFile(fileId: string) {
+  async deleteFile(fileUrl: string) {
     try {
-      const file = await this.prismaService.file.findUnique({
+      const file = await this.prismaService.file.findFirst({
         where: {
-          id: fileId,
+          fileUrl,
         },
       });
       if (!file) {
-        throw new NotFoundException(`File id ${fileId} not found`);
+        throw new NotFoundException(`File name ${fileUrl} not found`);
       }
 
       await Promise.all([
         this.prismaService.file.delete({
           where: {
-            id: fileId,
+            id: file.id,
+            fileUrl,
             contentType: ContentType.POST,
           },
         }),

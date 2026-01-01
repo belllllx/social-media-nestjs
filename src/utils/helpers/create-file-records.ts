@@ -3,8 +3,8 @@ import { ICreateFileRecord } from "../types";
 
 export function createFileRecords(
   newFilesName: string[],
-  contentId: string,
   contentType: ContentType,
+  contentId?: string,
 ): ICreateFileRecord[] {
   return newFilesName.map((file) => ({
     fileUrl: file,

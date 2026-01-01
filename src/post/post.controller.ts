@@ -29,6 +29,7 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { FileTypeValidationPipe } from 'src/utils/validations/file-type-validation-pipe';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { ResponseFromService } from 'src/utils/types';
+import { DeleteFileDto } from './dto/delete-file.dto';
 import { Express } from 'express';
 
 @UseGuards(AtAuthGuard)
@@ -201,6 +202,25 @@ export class PostController {
     };
   }
 
+  @Delete('delete/file')
+  @ApiOkResponse({
+    description: 'File deleted successfully',
+    type: CommonResponse,
+  })
+  @ApiNotFoundResponse({
+    description: 'Not found',
+    type: CommonResponse,
+  })
+  async deleteFile(
+    @Body() deleteFileDto: DeleteFileDto
+  ): Promise<ResponseFromService> {
+    await this.postService.deleteFile(deleteFileDto.fileUrl);
+
+    return {
+      message: 'File deleted successfully',
+    };
+  }
+
   @Delete('delete/:postId')
   @ApiOkResponse({
     description: 'Post deleted successfully',
@@ -217,25 +237,6 @@ export class PostController {
 
     return {
       message: 'Post deleted successfully',
-    };
-  }
-
-  @Delete('delete/file/:fileId')
-  @ApiOkResponse({
-    description: 'File deleted successfully',
-    type: CommonResponse,
-  })
-  @ApiNotFoundResponse({
-    description: 'Not found',
-    type: CommonResponse,
-  })
-  async deleteFile(
-    @Param('fileId', ParseUUIDPipe) fileId: string,
-  ): Promise<ResponseFromService> {
-    await this.postService.deleteFile(fileId);
-
-    return {
-      message: 'File deleted successfully',
     };
   }
 }

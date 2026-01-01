@@ -24,7 +24,7 @@ export interface IEmailOptions {
 
 export interface ICreateFileRecord {
   fileUrl: string;
-  contentId: string;
+  contentId?: string;
   contentType: ContentType;
 }
 
