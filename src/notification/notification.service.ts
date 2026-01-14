@@ -154,14 +154,14 @@ export class NotificationService {
   }
 
   async findByUser(
-    followerId: string,
-    followingId: string,
+    senderId: string,
+    receiverId: string,
   ) {
     try {
       const notification = await this.prismaService.notification.findFirst({
         where: {
-          senderId: followerId,
-          receiverId: followingId,
+          senderId,
+          receiverId,
         },
         include: {
           sender: {
@@ -173,7 +173,7 @@ export class NotificationService {
       });
       if (!notification) {
         throw new NotFoundException(
-          `Notification from followerId ${followerId} and followingId ${followingId} not found`,
+          `Notification from senderId ${senderId} and receiverId ${receiverId} not found`,
         );
       }
 

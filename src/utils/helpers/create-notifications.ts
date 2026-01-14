@@ -8,6 +8,7 @@ export async function createNotifications(
   notificationService: NotificationService,
   activeUserId: string,
   postId: string,
+  message: string,
 ) {
   const users = await prismaService.user.findMany({
     where: {
@@ -24,7 +25,7 @@ export async function createNotifications(
     senderId: activeUserId,
     receiverId: user.id,
     postId,
-    message: 'Create a new post',
+    message,
   }));
 
   return notificationService.createMany(notifications);

@@ -2,15 +2,17 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
   WebSocketGateway,
+  WebSocketServer,
 } from '@nestjs/websockets';
-import { Socket } from 'socket.io';
-import { Post } from 'generated/prisma';
+import { Server, Socket } from 'socket.io';
+import { Like, Post } from 'generated/prisma';
 import { handleWsConnection } from 'src/utils/helpers/handle-ws-connection';
 import { JwtService } from '@nestjs/jwt';
 import { handleWsDisconnection } from 'src/utils/helpers/handle-ws-disconnection';
 
 interface ServerToClientEvents {
   createPost: (post: Post) => void;
+  newLike: (like: Like) => void;
 }
 
 @WebSocketGateway({
@@ -22,6 +24,9 @@ interface ServerToClientEvents {
 export class PostGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(private jwtService: JwtService) {}
 
+  @WebSocketServer()
+  private server: Server<any, ServerToClientEvents>;
+
   private clients = new Map<string, Socket<any, ServerToClientEvents>>();
 
   handleConnection(client: Socket) {
@@ -32,10 +37,14 @@ export class PostGateway implements OnGatewayConnection, OnGatewayDisconnect {
     handleWsDisconnection(client, this.clients);
   }
 
-  broadcastNewPost(userId: string, post: Post){
+  broadcastNewPost(userId: string, post: Post) {
     const client = this.clients.get(userId);
-    if(client){
+    if (client) {
       client.broadcast.emit('createPost', post);
     }
+  }
+
+  NewLike(like: Like){
+    this.server.emit('newLike', like);
   }
 }

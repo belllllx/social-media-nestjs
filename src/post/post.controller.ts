@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   ParseUUIDPipe,
@@ -238,5 +240,18 @@ export class PostController {
     return {
       message: 'Post deleted successfully',
     };
+  }
+
+  @Post('like/:activeUserId/:postId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({
+    description: 'Like action successfully',
+    type: CommonResponse,
+  })
+  async like(
+    @Param('activeUserId', ParseUUIDPipe) activeUserId: string,
+    @Param('postId', ParseUUIDPipe) postId: string,
+  ): Promise<ResponseFromService>{
+    return await this.postService.like(activeUserId, postId);
   }
 }

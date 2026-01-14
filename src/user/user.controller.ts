@@ -96,6 +96,27 @@ export class UserController {
   }
 
   @UseGuards(AtAuthGuard)
+  @Get('find/:userId')
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized',
+    type: CommonResponse,
+  })
+  @ApiOkResponse({
+    description: 'User retreived successfully',
+    type: CommonResponse,
+  })
+  async findById(
+    @Param('userId', ParseUUIDPipe) userId: string,
+  ): Promise<ResponseFromService>{
+    const user = await this.userService.findById(userId);
+
+    return {
+      message: 'User retreived successfully',
+      data: user,
+    }
+  }
+
+  @UseGuards(AtAuthGuard)
   @Get('finds/:activeUserId')
   @ApiQuery({ name: 'cursor', required: false, type: String })
   @ApiQuery({ name: 'limit', required: false, type: String })

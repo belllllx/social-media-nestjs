@@ -90,15 +90,28 @@ export class UserService {
     }
   }
 
-  async findById(id: string): Promise<Omit<User, 'passwordHash'> | null> {
-    return await this.prisma.user.findUnique({
-      where: {
-        id,
-      },
-      omit: {
-        passwordHash: true,
-      },
-    });
+  async findById(id: string): Promise<Omit<User, 'passwordHash'>> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          id,
+        },
+        omit: {
+          passwordHash: true,
+        },
+      });
+      if(!user){
+        throw new NotFoundException(`User id ${id} not found`);
+      }
+
+      return user;
+    } catch (error: unknown) {
+      if(error instanceof NotFoundException){
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Error cannot find user');
+    }
   }
 
   async resetPassword(resetPasswordDto: ResetPasswordDto & { email: string }) {

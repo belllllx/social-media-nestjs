@@ -10,7 +10,14 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { PrismaClientKnownRequestError } from 'generated/prisma/runtime/library';
-import { ContentType, Like, Notification, Post, User } from 'generated/prisma';
+import {
+  ContentType,
+  Like,
+  Notification,
+  NotificationType,
+  Post,
+  User,
+} from 'generated/prisma';
 import { createFileRecords } from 'src/utils/helpers/create-file-records';
 import { putObjectS3 } from 'src/utils/helpers/put-object-s3';
 import { getObjectS3 } from 'src/utils/helpers/get-object-s3';
@@ -86,7 +93,10 @@ export class PostService {
         }),
       );
 
-      const createFileRecordsData = createFileRecords(filesUrl, ContentType.POST);
+      const createFileRecordsData = createFileRecords(
+        filesUrl,
+        ContentType.POST,
+      );
       await this.prismaService.file.createMany({
         data: createFileRecordsData,
       });
@@ -119,11 +129,7 @@ export class PostService {
     }
 
     try {
-      const user = await this.userService.findById(userId);
-      if (!user) {
-        throw new NotFoundException(`User id ${userId} not found`);
-      }
-
+      await this.userService.findById(userId);
       const post = await this.prismaService.post.create({
         data: {
           message,
@@ -145,6 +151,7 @@ export class PostService {
           this.notificationService,
           userId,
           post.id,
+          'Create a new post',
         );
         notifications.forEach((notification) => {
           this.notificationGateway.sendNotifications(userId, notification);
@@ -168,6 +175,7 @@ export class PostService {
           this.notificationService,
           userId,
           post.id,
+          'Create a new post',
         );
         notifications.forEach((notification) => {
           this.notificationGateway.sendNotifications(userId, notification);
@@ -198,10 +206,7 @@ export class PostService {
     const { message, userId, parentId } = createPostDto;
 
     try {
-      const user = await this.userService.findById(userId);
-      if (!user) {
-        throw new NotFoundException(`User id ${userId} not found`);
-      }
+      await this.userService.findById(userId);
 
       const post = await this.prismaService.post.findUnique({
         where: {
@@ -269,7 +274,15 @@ export class PostService {
             }
           : undefined,
         include: {
-          likes: true,
+          likes: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
           user: {
             omit: {
               passwordHash: true,
@@ -338,7 +351,15 @@ export class PostService {
           id: postId,
         },
         include: {
-          likes: true,
+          likes: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
           user: {
             omit: {
               passwordHash: true,
@@ -393,10 +414,7 @@ export class PostService {
     nextCursor: string | null;
   }> {
     try {
-      const user = await this.userService.findById(userId);
-      if (!user) {
-        throw new NotFoundException(`User id ${userId} not found`);
-      }
+      await this.userService.findById(userId);
 
       const posts = await this.prismaService.post.findMany({
         where: {
@@ -409,7 +427,15 @@ export class PostService {
             }
           : undefined,
         include: {
-          likes: true,
+          likes: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
           user: {
             omit: {
               passwordHash: true,
@@ -499,7 +525,15 @@ export class PostService {
           message,
         },
         include: {
-          likes: true,
+          likes: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
           user: {
             omit: {
               passwordHash: true,
@@ -692,6 +726,88 @@ export class PostService {
         }),
         deleteFileFromS3(file, this.configService, this.s3),
       ]);
+    } catch (error: unknown) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        throw new InternalServerErrorException(error.message);
+      } else if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(error, 'Unexpected error');
+    }
+  }
+
+  async like(activeUserId: string, postId: string) {
+    try {
+      const user = await this.userService.findById(activeUserId);
+      const post = await this.findPostById(postId);
+      if (!post) {
+        throw new NotFoundException(`Post id ${postId} not found`);
+      }
+
+      const like = await this.prismaService.like.findFirst({
+        where: {
+          userId: activeUserId,
+          postId,
+        },
+      });
+      if (!like) {
+        const createdLike = await this.prismaService.like.create({
+          data: {
+            userId: activeUserId,
+            postId,
+          },
+          include: {
+            user: {
+              omit: {
+                passwordHash: true,
+              },
+            },
+          },
+        });
+        const notification = await this.notificationService.create({
+          type: NotificationType.LIKE,
+          senderId: activeUserId,
+          receiverId: post.userId,
+          message: `${user.fullname} like your post`,
+        });
+        this.notificationGateway.sendNotifications(activeUserId, notification);
+        this.postGateway.NewLike(createdLike);
+
+        return {
+          message: 'Like successfully',
+          data: createdLike,
+        };
+      }
+
+      const deletedLike = await this.prismaService.like.delete({
+        where: {
+          id: like.id,
+          userId: activeUserId,
+          postId,
+        },
+        include: {
+          user: {
+            omit: {
+              passwordHash: true,
+            },
+          },
+        },
+      });
+
+      const notification = await this.notificationService.findByUser(
+        activeUserId,
+        post.userId,
+      );
+      await this.notificationService.delete(notification.id);
+      this.notificationGateway.sendNotifications(activeUserId, notification);
+
+      this.postGateway.NewLike(deletedLike);
+
+      return {
+        message: 'Unlike successfully',
+        data: deletedLike,
+      };
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
         throw new InternalServerErrorException(error.message);

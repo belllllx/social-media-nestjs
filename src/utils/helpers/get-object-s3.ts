@@ -15,7 +15,7 @@ export function getObjectS3(
       Key: `${fileDir}/${fileName}`,
     }),
     {
-      expiresIn: 60 * 5,
+      expiresIn: 60 * 60 * 24,
     },
   );
 }

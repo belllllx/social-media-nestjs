@@ -25,7 +25,7 @@ export class AtStrategy extends PassportStrategy(Strategy, 'access-token') {
     });
   }
 
-  validate(payload: JwtPayload<{ id: string }>): Promise<Omit<User, 'passwordHash'> | null> {
+  validate(payload: JwtPayload<{ id: string }>): Promise<Omit<User, 'passwordHash'>> {
     return this.userService.findById(payload.id);
   }
 }
