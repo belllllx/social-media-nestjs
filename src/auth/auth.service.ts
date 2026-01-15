@@ -20,7 +20,7 @@ export class AuthService {
   async validateUser(
     username: string,
     password: string,
-  ): Promise<Omit<User, 'passwordHash'> | null> {
+  ){
     const user = await this.userService.findOne(username);
     if (
       user &&

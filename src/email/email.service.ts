@@ -13,7 +13,6 @@ import { IEmailOptions } from 'src/utils/types';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ProviderType } from 'generated/prisma';
 import { JwtService } from '@nestjs/jwt';
-import { Response as ExpressResponse } from 'express';
 import { createJwt } from 'src/utils/helpers/create-jwt';
 import { UserService } from 'src/user/user.service';
 import * as nodemailer from 'nodemailer';

@@ -5,10 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
-  Follower,
   NotificationType,
   ProviderType,
-  User,
 } from 'generated/prisma';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -28,7 +26,7 @@ export class UserService {
     private notificationGateway: NotificationGateway,
   ) {}
 
-  async findOne(username: string): Promise<User | null> {
+  async findOne(username: string){
     return await this.prisma.user.findUnique({
       where: {
         username,
@@ -38,7 +36,7 @@ export class UserService {
 
   async createUser(
     createUserDto: CreateUserDto | CreateSocialUserDto,
-  ): Promise<Omit<User, 'passwordHash'>> {
+  ){
     const { fullname, username, email, password, profileUrl, providerType } =
       createUserDto;
     try {
@@ -90,7 +88,7 @@ export class UserService {
     }
   }
 
-  async findById(id: string): Promise<Omit<User, 'passwordHash'>> {
+  async findById(id: string){
     try {
       const user = await this.prisma.user.findUnique({
         where: {
@@ -144,7 +142,7 @@ export class UserService {
     }
   }
 
-  async findByEmail(email: string): Promise<Omit<User, 'passwordHash'> | null> {
+  async findByEmail(email: string){
     return await this.prisma.user.findUnique({
       where: {
         email,
@@ -160,10 +158,7 @@ export class UserService {
     query: string,
     cursor?: string,
     limit: number = 5,
-  ): Promise<{
-    users: Omit<User, 'passwordHash'>[];
-    nextCursor: string | null;
-  }> {
+  ){
     const users = await this.prisma.user.findMany({
       where: {
         fullname: {
@@ -202,12 +197,7 @@ export class UserService {
     activeUserId: string,
     cursor?: string,
     limit: number = 5,
-  ): Promise<{
-    users: (Omit<User, 'passwordHash'> & {
-      followers: Follower[];
-    })[];
-    nextCursor: string | null;
-  }> {
+  ){
     try {
       const activeUser = await this.prisma.user.findUnique({
         where: {
@@ -273,16 +263,7 @@ export class UserService {
   async follow(
     followerId: string,
     followingId: string,
-  ): Promise<{
-    status: 'follow' | 'unfollow';
-    follower: {
-      id: number;
-      followerId: string;
-      followingId: string;
-      createdAt: Date;
-      updatedAt: Date;
-    };
-  }> {
+  ){
     try {
       const followerUser = await this.findById(followerId);
       if (!followerUser) {

@@ -6,7 +6,6 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { PrismaClientKnownRequestError } from 'generated/prisma/runtime/library';
-import { Notification, User } from 'generated/prisma';
 
 @Injectable()
 export class NotificationService {
@@ -66,10 +65,7 @@ export class NotificationService {
     activeUserId: string,
     cursor?: string,
     limit: number = 5,
-  ): Promise<{
-    notifies: Notification[];
-    nextCursor: string | null;
-  }> {
+  ){
     const notifies = await this.prismaService.notification.findMany({
       where: {
         senderId: {
@@ -112,7 +108,7 @@ export class NotificationService {
 
   async updateToRead(
     notificationId: string,
-  ): Promise<Notification & { sender: Omit<User, 'passwordHash'> }> {
+  ){
     try {
       const notification = await this.prismaService.notification.findUnique({
         where: {

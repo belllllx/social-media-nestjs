@@ -12,10 +12,8 @@ import { CreatePostDto } from './dto/create-post.dto';
 import { PrismaClientKnownRequestError } from 'generated/prisma/runtime/library';
 import {
   ContentType,
-  Like,
   Notification,
   NotificationType,
-  Post,
   User,
 } from 'generated/prisma';
 import { createFileRecords } from 'src/utils/helpers/create-file-records';
@@ -36,6 +34,7 @@ import { UserService } from 'src/user/user.service';
 import { NotificationGateway } from 'src/notification/notification.gateway';
 import { PostGateway } from './post.gateway';
 import { deleteFileFromS3 } from 'src/utils/helpers/delete-file-from-s3';
+import { getFiles } from 'src/utils/helpers/get-files';
 import { Express } from 'express';
 
 @Injectable()
@@ -113,13 +112,7 @@ export class PostService {
     }
   }
 
-  async createPost(createPostDto: CreatePostDto & { userId: string }): Promise<
-    Post & {
-      user: Omit<User, 'passwordHash'>;
-      likes: Like[];
-      filesUrl?: string[];
-    }
-  > {
+  async createPost(createPostDto: CreatePostDto & { userId: string }){
     const { message, userId, filesUrl } = createPostDto;
     let notifications: (Notification & {
       sender: Omit<User, 'passwordHash'>;
@@ -202,7 +195,7 @@ export class PostService {
 
   async createSharePost(
     createPostDto: CreatePostDto & { userId: string; parentId: string },
-  ): Promise<Post & { user: Omit<User, 'passwordHash'>; likes: Like[] }> {
+  ){
     const { message, userId, parentId } = createPostDto;
 
     try {
@@ -254,17 +247,7 @@ export class PostService {
     }
   }
 
-  async findPosts(
-    cursor?: string,
-    limit: number = 5,
-  ): Promise<{
-    posts: (Post & {
-      user: Omit<User, 'passwordHash'>;
-      likes: Like[];
-      filesUrl: string[];
-    })[];
-    nextCursor: string | null;
-  }> {
+  async findPosts(cursor?: string, limit: number = 5) {
     try {
       const posts = await this.prismaService.post.findMany({
         take: -(limit + 1),
@@ -288,6 +271,15 @@ export class PostService {
               passwordHash: true,
             },
           },
+          parent: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
@@ -296,20 +288,30 @@ export class PostService {
 
       const postsWithFiles = await Promise.all(
         posts.map(async (post) => {
-          const files = await findFiles(post.id, this.prismaService);
-          const filesUrl = files.map((file) => file.fileUrl);
-          const filesFromS3 = await Promise.all(
-            filesUrl.map((fileUrl) => {
-              const fileName = getFileNameFromPresignedUrl(fileUrl);
-              const fileDir = getFileDirFromPresignedUrl(fileUrl) as FileDir;
-              return getObjectS3(
-                fileName,
-                this.configService.get<string>('AWS_BUCKET_NAME')!,
-                fileDir,
-                this.s3,
-              );
-            }),
+          const filesFromS3 = await getFiles(
+            post.id,
+            this.prismaService,
+            this.configService,
+            this.s3,
           );
+
+          if (post.parent) {
+            const postParentFilesFromS3 = await getFiles(
+              post.parent.id,
+              this.prismaService,
+              this.configService,
+              this.s3,
+            );
+
+            return {
+              ...post,
+              filesUrl: filesFromS3,
+              parent: {
+                ...post.parent,
+                filesUrl: postParentFilesFromS3,
+              },
+            };
+          }
 
           return {
             ...post,
@@ -338,13 +340,7 @@ export class PostService {
     }
   }
 
-  async findPostById(postId: string): Promise<
-    Post & {
-      user: Omit<User, 'passwordHash'>;
-      likes: Like[];
-      filesUrl: string[];
-    }
-  > {
+  async findPostById(postId: string) {
     try {
       const post = await this.prismaService.post.findUnique({
         where: {
@@ -365,26 +361,45 @@ export class PostService {
               passwordHash: true,
             },
           },
+          parent: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
         },
       });
       if (!post) {
         throw new NotFoundException(`Post id ${postId} not found`);
       }
 
-      const files = await findFiles(post.id, this.prismaService);
-      const filesUrl = files.map((file) => file.fileUrl);
-      const filesFromS3 = await Promise.all(
-        filesUrl.map((fileUrl) => {
-          const fileName = getFileNameFromPresignedUrl(fileUrl);
-          const fileDir = getFileDirFromPresignedUrl(fileUrl) as FileDir;
-          return getObjectS3(
-            fileName,
-            this.configService.get<string>('AWS_BUCKET_NAME')!,
-            fileDir,
-            this.s3,
-          );
-        }),
+      const filesFromS3 = await getFiles(
+        post.id,
+        this.prismaService,
+        this.configService,
+        this.s3,
       );
+
+      if (post.parent) {
+        const postParentFilesFromS3 = await getFiles(
+          post.parent.id,
+          this.prismaService,
+          this.configService,
+          this.s3,
+        );
+
+        return {
+          ...post,
+          filesUrl: filesFromS3,
+          parent: {
+            ...post.parent,
+            filesUrl: postParentFilesFromS3,
+          },
+        };
+      }
 
       return {
         ...post,
@@ -401,18 +416,7 @@ export class PostService {
     }
   }
 
-  async findPostByUser(
-    userId: string,
-    cursor?: string,
-    limit: number = 5,
-  ): Promise<{
-    posts: (Post & {
-      user: Omit<User, 'passwordHash'>;
-      likes: Like[];
-      filesUrl: string[];
-    })[];
-    nextCursor: string | null;
-  }> {
+  async findPostByUser(userId: string, cursor?: string, limit: number = 5) {
     try {
       await this.userService.findById(userId);
 
@@ -441,6 +445,15 @@ export class PostService {
               passwordHash: true,
             },
           },
+          parent: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
@@ -452,20 +465,31 @@ export class PostService {
 
       const postsWithFiles = await Promise.all(
         posts.map(async (post) => {
-          const files = await findFiles(post.id, this.prismaService);
-          const filesUrl = files.map((file) => file.fileUrl);
-          const filesFromS3 = await Promise.all(
-            filesUrl.map((fileUrl) => {
-              const fileName = getFileNameFromPresignedUrl(fileUrl);
-              const fileDir = getFileDirFromPresignedUrl(fileUrl) as FileDir;
-              return getObjectS3(
-                fileName,
-                this.configService.get<string>('AWS_BUCKET_NAME')!,
-                fileDir,
-                this.s3,
-              );
-            }),
+          const filesFromS3 = await getFiles(
+            post.id,
+            this.prismaService,
+            this.configService,
+            this.s3,
           );
+
+          if (post.parent) {
+            const postParentFilesFromS3 = await getFiles(
+              post.parent.id,
+              this.prismaService,
+              this.configService,
+              this.s3,
+            );
+
+            return {
+              ...post,
+              filesUrl: filesFromS3,
+              parent: {
+                ...post.parent,
+                filesUrl: postParentFilesFromS3,
+              },
+            };
+          }
+
           return {
             ...post,
             filesUrl: filesFromS3,
@@ -495,13 +519,7 @@ export class PostService {
     }
   }
 
-  async updatePost(updatePostDto: UpdatePostDto & { postId: string }): Promise<
-    Post & {
-      user: Omit<User, 'passwordHash'>;
-      likes: Like[];
-      filesUrl: string[];
-    }
-  > {
+  async updatePost(updatePostDto: UpdatePostDto & { postId: string }) {
     const { message, postId, filesUrl } = updatePostDto;
     if (!message && (!filesUrl || !filesUrl.length)) {
       throw new BadRequestException('Post must contain a message or files');
@@ -539,6 +557,15 @@ export class PostService {
               passwordHash: true,
             },
           },
+          parent: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -571,6 +598,24 @@ export class PostService {
             );
           }),
         );
+
+        if (post.parent) {
+          const postParentFilesFromS3 = await getFiles(
+            post.parent.id,
+            this.prismaService,
+            this.configService,
+            this.s3,
+          );
+
+          return {
+            ...post,
+            filesUrl,
+            parent: {
+              ...post.parent,
+              filesUrl: postParentFilesFromS3,
+            },
+          };
+        }
 
         return {
           ...post,
@@ -631,6 +676,24 @@ export class PostService {
         await this.prismaService.file.createMany({
           data: createFileRecordsData,
         });
+
+        if (post.parent) {
+          const postParentFilesFromS3 = await getFiles(
+            post.parent.id,
+            this.prismaService,
+            this.configService,
+            this.s3,
+          );
+
+          return {
+            ...post,
+            filesUrl,
+            parent: {
+              ...post.parent,
+              filesUrl: postParentFilesFromS3,
+            },
+          };
+        }
 
         return {
           ...post,
