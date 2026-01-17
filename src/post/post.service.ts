@@ -787,6 +787,26 @@ export class PostService {
         throw new NotFoundException(`Post id ${postId} not found`);
       }
 
+      const users = await this.prismaService.user.findMany({
+        where: {
+          id: {
+            not: post.userId,
+          },
+        },
+        omit: {
+          passwordHash: true,
+        },
+      });
+
+      for (const user of users) {
+        const notification = await this.notificationService.findByUser(
+          post.userId,
+          user.id,
+        );
+        await this.notificationService.delete(notification.id);
+        this.notificationGateway.sendNotifications(post.userId, notification);
+      }
+
       const postFiles = await findFiles(post.id, this.prismaService);
       await Promise.all([
         ...postFiles.map((postFile) => {
@@ -814,6 +834,8 @@ export class PostService {
           },
         }),
       ]);
+
+      this.postGateway.deletePost(post);
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
         throw new InternalServerErrorException(error.message);

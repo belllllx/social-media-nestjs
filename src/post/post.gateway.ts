@@ -26,6 +26,7 @@ interface ServerToClientEvents {
       filesUrl?: string[];
     },
   ) => void;
+  deletePost: (post: Post) => void;
   newLike: (like: Like) => void;
 }
 
@@ -61,10 +62,6 @@ export class PostGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.emit('createPost', post);
   }
 
-  newLike(like: Like) {
-    this.server.emit('newLike', like);
-  }
-
   updatePost(
     post: Post & {
       likes: (Like & { user: Omit<User, 'passwordHash'> })[];
@@ -74,5 +71,13 @@ export class PostGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
   ) {
     this.server.emit('updatePost', post);
+  }
+
+  deletePost(post: Post){
+    this.server.emit('deletePost', post);
+  }
+
+  newLike(like: Like) {
+    this.server.emit('newLike', like);
   }
 }
