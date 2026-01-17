@@ -8,7 +8,7 @@ export function genFilesName(
     const newFileName = `${uuidv4()}.${fileExt}`;
     return {
       ...file,
-      originalname: newFileName,
+      filename: newFileName,
     };
   });
 }

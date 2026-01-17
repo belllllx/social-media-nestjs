@@ -10,7 +10,7 @@ export function putObjectS3(
   return s3.send(
     new PutObjectCommand({
       Bucket: bucketName,
-      Key: `${fileDir}/${file.originalname}`,
+      Key: `${fileDir}/${file.filename}`,
       Body: file.buffer,
       ContentType: file.mimetype,
     }),

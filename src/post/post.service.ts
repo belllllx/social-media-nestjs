@@ -24,7 +24,7 @@ import { findFiles } from 'src/utils/helpers/find-files';
 import { getFileNameFromPresignedUrl } from 'src/utils/helpers/get-filename-from-presigned-url';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { deleteObjectS3 } from 'src/utils/helpers/delete-object-s3';
-import { getFileDirFromFile } from 'src/utils/helpers/get-file-dir-from-file';
+import { getFileDirFromFileMulter } from 'src/utils/helpers/get-file-dir-from-file-multer';
 import { getFileDirFromPresignedUrl } from 'src/utils/helpers/get-file-dir-from-presigned-url';
 import { FileDir } from 'src/utils/types';
 import { NotificationService } from 'src/notification/notification.service';
@@ -35,6 +35,7 @@ import { NotificationGateway } from 'src/notification/notification.gateway';
 import { PostGateway } from './post.gateway';
 import { deleteFileFromS3 } from 'src/utils/helpers/delete-file-from-s3';
 import { getFiles } from 'src/utils/helpers/get-files';
+import { getFileInfo } from 'src/utils/helpers/get-file-info';
 import { Express } from 'express';
 
 @Injectable()
@@ -70,7 +71,7 @@ export class PostService {
       const newFilesName = genFilesName(files);
       await Promise.all(
         newFilesName.map((newFileName) => {
-          const fileDir = getFileDirFromFile(newFileName, 'post');
+          const fileDir = getFileDirFromFileMulter(newFileName, 'post');
           return putObjectS3(
             newFileName,
             this.configService.get<string>('AWS_BUCKET_NAME')!,
@@ -82,9 +83,9 @@ export class PostService {
 
       const filesUrl = await Promise.all(
         newFilesName.map((newFileName) => {
-          const fileDir = getFileDirFromFile(newFileName, 'post');
+          const fileDir = getFileDirFromFileMulter(newFileName, 'post');
           return getObjectS3(
-            newFileName.originalname,
+            newFileName,
             this.configService.get<string>('AWS_BUCKET_NAME')!,
             fileDir,
             this.s3,
@@ -93,7 +94,7 @@ export class PostService {
       );
 
       const createFileRecordsData = createFileRecords(
-        filesUrl,
+        newFilesName,
         ContentType.POST,
       );
       await this.prismaService.file.createMany({
@@ -112,7 +113,7 @@ export class PostService {
     }
   }
 
-  async createPost(createPostDto: CreatePostDto & { userId: string }){
+  async createPost(createPostDto: CreatePostDto & { userId: string }) {
     const { message, userId, filesUrl } = createPostDto;
     let notifications: (Notification & {
       sender: Omit<User, 'passwordHash'>;
@@ -149,20 +150,44 @@ export class PostService {
         notifications.forEach((notification) => {
           this.notificationGateway.sendNotifications(userId, notification);
         });
-        this.postGateway.broadcastNewPost(userId, post);
+        this.postGateway.newPost(post);
 
         return post;
       }
 
       if (filesUrl && filesUrl.length) {
-        const postFileRecords = createFileRecords(
-          filesUrl,
-          ContentType.POST,
+        for (const fileUrl of filesUrl) {
+          const fileDir = getFileDirFromPresignedUrl(fileUrl);
+          const fileName = getFileNameFromPresignedUrl(fileUrl);
+
+          const file = await this.prismaService.file.findFirst({
+            where: {
+              fileName: `${fileDir}/${fileName}`,
+              contentType: ContentType.POST,
+            },
+          });
+
+          if (file) {
+            await this.prismaService.file.update({
+              data: {
+                contentId: post.id,
+              },
+              where: {
+                id: file.id,
+                fileName: `${fileDir}/${fileName}`,
+                contentType: ContentType.POST,
+              },
+            });
+          }
+        }
+
+        const filesFromS3 = await getFiles(
           post.id,
+          this.prismaService,
+          this.configService,
+          this.s3,
         );
-        await this.prismaService.file.createMany({
-          data: postFileRecords,
-        });
+
         notifications = await createNotifications(
           this.prismaService,
           this.notificationService,
@@ -173,7 +198,10 @@ export class PostService {
         notifications.forEach((notification) => {
           this.notificationGateway.sendNotifications(userId, notification);
         });
-        this.postGateway.broadcastNewPost(userId, post);
+        this.postGateway.newPost({
+          ...post,
+          filesUrl: filesFromS3,
+        });
 
         return {
           ...post,
@@ -195,7 +223,7 @@ export class PostService {
 
   async createSharePost(
     createPostDto: CreatePostDto & { userId: string; parentId: string },
-  ){
+  ) {
     const { message, userId, parentId } = createPostDto;
 
     try {
@@ -233,7 +261,7 @@ export class PostService {
       if (notification) {
         this.notificationGateway.sendNotifications(userId, notification);
       }
-      this.postGateway.broadcastNewPost(userId, sharePost);
+      this.postGateway.newPost(sharePost);
 
       return sharePost;
     } catch (error: unknown) {
@@ -520,7 +548,8 @@ export class PostService {
   }
 
   async updatePost(updatePostDto: UpdatePostDto & { postId: string }) {
-    const { message, postId, filesUrl } = updatePostDto;
+    const { message, postId, filesUrl, shouldDeleteCurrentFiles } =
+      updatePostDto;
     if (!message && (!filesUrl || !filesUrl.length)) {
       throw new BadRequestException('Post must contain a message or files');
     }
@@ -569,7 +598,7 @@ export class PostService {
         },
       });
 
-      if (!filesUrl || !filesUrl.length) {
+      if (!filesUrl || !filesUrl.length || !shouldDeleteCurrentFiles) {
         const fileRecords = await this.prismaService.file.findMany({
           where: {
             contentId: post.id,
@@ -579,13 +608,10 @@ export class PostService {
 
         let filesData: { fileName: string; fileDir: FileDir }[] = [];
         fileRecords.forEach((fileRecord) => {
-          const fileDir = getFileDirFromPresignedUrl(
-            fileRecord.fileUrl,
-          ) as FileDir;
-          const fileName = getFileNameFromPresignedUrl(fileRecord.fileUrl);
+          const { fileDir, fileName } = getFileInfo(fileRecord.fileName);
           filesData.push({
             fileName,
-            fileDir,
+            fileDir: fileDir as FileDir,
           });
         });
         const filesUrl = await Promise.all(
@@ -607,6 +633,11 @@ export class PostService {
             this.s3,
           );
 
+          this.postGateway.updatePost({
+            ...post,
+            filesUrl,
+          });
+
           return {
             ...post,
             filesUrl,
@@ -617,26 +648,28 @@ export class PostService {
           };
         }
 
+        this.postGateway.updatePost({
+          ...post,
+          filesUrl,
+        });
+
         return {
           ...post,
           filesUrl,
         };
       }
 
-      if (filesUrl && filesUrl.length) {
+      if (filesUrl && filesUrl.length && shouldDeleteCurrentFiles) {
         const postFiles = await findFiles(post.id, this.prismaService);
 
         if (postFiles && postFiles.length) {
           await Promise.all(
             postFiles.map((postFile) => {
-              const fileDir = getFileDirFromPresignedUrl(
-                postFile.fileUrl,
-              ) as FileDir;
-              const fileName = getFileNameFromPresignedUrl(postFile.fileUrl);
+              const { fileDir, fileName } = getFileInfo(postFile.fileName);
               return deleteObjectS3(
                 fileName,
                 this.configService.get<string>('AWS_BUCKET_NAME')!,
-                fileDir,
+                fileDir as FileDir,
                 this.s3,
               );
             }),
@@ -660,7 +693,7 @@ export class PostService {
           postFiles.map(async (postFile) => {
             return this.prismaService.file.deleteMany({
               where: {
-                fileUrl: postFile.fileUrl,
+                fileName: postFile.fileName,
                 contentId: post.id,
                 contentType: ContentType.POST,
               },
@@ -668,14 +701,30 @@ export class PostService {
           }),
         );
 
-        const createFileRecordsData = createFileRecords(
-          filesUrlS3,
-          ContentType.POST,
-          post.id,
-        );
-        await this.prismaService.file.createMany({
-          data: createFileRecordsData,
-        });
+        for (const fileUrl of filesUrl) {
+          const fileDir = getFileDirFromPresignedUrl(fileUrl);
+          const fileName = getFileNameFromPresignedUrl(fileUrl);
+
+          const file = await this.prismaService.file.findFirst({
+            where: {
+              fileName: `${fileDir}/${fileName}`,
+              contentType: ContentType.POST,
+            },
+          });
+
+          if (file) {
+            await this.prismaService.file.update({
+              data: {
+                contentId: post.id,
+              },
+              where: {
+                id: file.id,
+                fileName: `${fileDir}/${fileName}`,
+                contentType: ContentType.POST,
+              },
+            });
+          }
+        }
 
         if (post.parent) {
           const postParentFilesFromS3 = await getFiles(
@@ -684,6 +733,11 @@ export class PostService {
             this.configService,
             this.s3,
           );
+
+          this.postGateway.updatePost({
+            ...post,
+            filesUrl: filesUrlS3,
+          });
 
           return {
             ...post,
@@ -694,6 +748,11 @@ export class PostService {
             },
           };
         }
+
+        this.postGateway.updatePost({
+          ...post,
+          filesUrl: filesUrlS3,
+        });
 
         return {
           ...post,
@@ -731,14 +790,11 @@ export class PostService {
       const postFiles = await findFiles(post.id, this.prismaService);
       await Promise.all([
         ...postFiles.map((postFile) => {
-          const fileName = getFileNameFromPresignedUrl(postFile.fileUrl);
-          const fileDir = getFileDirFromPresignedUrl(
-            postFile.fileUrl,
-          ) as FileDir;
+          const { fileDir, fileName } = getFileInfo(postFile.fileName);
           return deleteObjectS3(
             fileName,
             this.configService.get<string>('AWS_BUCKET_NAME')!,
-            fileDir,
+            fileDir as FileDir,
             this.s3,
           );
         }),
@@ -746,6 +802,7 @@ export class PostService {
           return this.prismaService.file.delete({
             where: {
               id: postFile.id,
+              fileName: postFile.fileName,
               contentId: post.id,
               contentType: ContentType.POST,
             },
@@ -770,9 +827,12 @@ export class PostService {
 
   async deleteFile(fileUrl: string) {
     try {
+      const fileName = getFileNameFromPresignedUrl(fileUrl);
+      const fileDir = getFileDirFromPresignedUrl(fileUrl);
+
       const file = await this.prismaService.file.findFirst({
         where: {
-          fileUrl,
+          fileName: `${fileDir}/${fileName}`,
         },
       });
       if (!file) {
@@ -783,7 +843,7 @@ export class PostService {
         this.prismaService.file.delete({
           where: {
             id: file.id,
-            fileUrl,
+            fileName: `${fileDir}/${fileName}`,
             contentType: ContentType.POST,
           },
         }),
@@ -835,7 +895,7 @@ export class PostService {
           message: `${user.fullname} like your post`,
         });
         this.notificationGateway.sendNotifications(activeUserId, notification);
-        this.postGateway.NewLike(createdLike);
+        this.postGateway.newLike(createdLike);
 
         return {
           message: 'Like successfully',
@@ -865,7 +925,7 @@ export class PostService {
       await this.notificationService.delete(notification.id);
       this.notificationGateway.sendNotifications(activeUserId, notification);
 
-      this.postGateway.NewLike(deletedLike);
+      this.postGateway.newLike(deletedLike);
 
       return {
         message: 'Unlike successfully',

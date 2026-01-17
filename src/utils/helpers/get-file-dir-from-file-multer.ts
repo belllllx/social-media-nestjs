@@ -1,6 +1,6 @@
 import { FileDir } from "../types";
 
-export function getFileDirFromFile(
+export function getFileDirFromFileMulter(
   file: Express.Multer.File,
   type: 'post' | 'comment' | 'reply' | 'chat',
 ): FileDir {

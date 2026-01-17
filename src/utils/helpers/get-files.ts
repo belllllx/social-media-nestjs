@@ -1,11 +1,10 @@
 import { PrismaService } from "src/prisma/prisma.service";
 import { findFiles } from "./find-files";
-import { getFileNameFromPresignedUrl } from "./get-filename-from-presigned-url";
-import { getFileDirFromPresignedUrl } from "./get-file-dir-from-presigned-url";
-import { FileDir } from "../types";
 import { getObjectS3 } from "./get-object-s3";
 import { ConfigService } from "@nestjs/config";
 import { S3Client } from "@aws-sdk/client-s3";
+import { getFileInfo } from "./get-file-info";
+import { FileDir } from "../types";
 
 export async function getFiles(
   postId: string,
@@ -14,15 +13,15 @@ export async function getFiles(
   s3: S3Client,
 ) {
   const files = await findFiles(postId, prismaService);
-  const filesUrl = files.map((file) => file.fileUrl);
+  const filesName = files.map((file) => file.fileName);
+
   return Promise.all(
-    filesUrl.map((fileUrl) => {
-      const fileName = getFileNameFromPresignedUrl(fileUrl);
-      const fileDir = getFileDirFromPresignedUrl(fileUrl) as FileDir;
+    filesName.map((fileNameData) => {
+      const { fileDir, fileName } = getFileInfo(fileNameData);
       return getObjectS3(
         fileName,
         configService.get<string>('AWS_BUCKET_NAME')!,
-        fileDir,
+        fileDir as FileDir,
         s3,
       );
     }),

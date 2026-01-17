@@ -5,13 +5,27 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Like, Post } from 'generated/prisma';
+import { Like, Post, User } from 'generated/prisma';
 import { handleWsConnection } from 'src/utils/helpers/handle-ws-connection';
 import { JwtService } from '@nestjs/jwt';
 import { handleWsDisconnection } from 'src/utils/helpers/handle-ws-disconnection';
 
 interface ServerToClientEvents {
-  createPost: (post: Post) => void;
+  createPost: (
+    post: Post & {
+      likes: Like[];
+      user: Omit<User, 'passwordHash'>;
+      filesUrl?: string[];
+    },
+  ) => void;
+  updatePost: (
+    post: Post & {
+      likes: (Like & { user: Omit<User, 'passwordHash'> })[];
+      user: Omit<User, 'passwordHash'>;
+      parent: (Post & { user: Omit<User, 'passwordHash'> }) | null;
+      filesUrl?: string[];
+    },
+  ) => void;
   newLike: (like: Like) => void;
 }
 
@@ -37,14 +51,28 @@ export class PostGateway implements OnGatewayConnection, OnGatewayDisconnect {
     handleWsDisconnection(client, this.clients);
   }
 
-  broadcastNewPost(userId: string, post: Post) {
-    const client = this.clients.get(userId);
-    if (client) {
-      client.broadcast.emit('createPost', post);
-    }
+  newPost(
+    post: Post & {
+      likes: Like[];
+      user: Omit<User, 'passwordHash'>;
+      filesUrl?: string[];
+    },
+  ) {
+    this.server.emit('createPost', post);
   }
 
-  NewLike(like: Like){
+  newLike(like: Like) {
     this.server.emit('newLike', like);
+  }
+
+  updatePost(
+    post: Post & {
+      likes: (Like & { user: Omit<User, 'passwordHash'> })[];
+      user: Omit<User, 'passwordHash'>;
+      parent: (Post & { user: Omit<User, 'passwordHash'> }) | null;
+      filesUrl?: string[];
+    },
+  ) {
+    this.server.emit('updatePost', post);
   }
 }
