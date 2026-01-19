@@ -3,16 +3,21 @@ import { NotificationService } from 'src/notification/notification.service';
 
 export function createNotification(
   notificationService: NotificationService,
+  type: NotificationType,
   activeUserId: string,
+  receiverId: string,
+  message: string,
   post: Post,
+  commentId?: string
 ) {
   if (activeUserId !== post.userId) {
     return notificationService.create({
-      type: NotificationType.SHARE,
+      type,
       senderId: activeUserId,
-      receiverId: post.userId,
+      receiverId,
       postId: post.id,
-      message: 'Share your post',
+      commentId,
+      message,
     });
   }
 }

@@ -7,12 +7,12 @@ import { getFileInfo } from "./get-file-info";
 import { FileDir } from "../types";
 
 export async function getFiles(
-  postId: string,
+  contentId: string,
   prismaService: PrismaService,
   configService: ConfigService,
   s3: S3Client,
 ) {
-  const files = await findFiles(postId, prismaService);
+  const files = await findFiles(contentId, prismaService);
   const filesName = files.map((file) => file.fileName);
 
   return Promise.all(

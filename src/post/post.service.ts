@@ -144,9 +144,10 @@ export class PostService {
         notifications = await createNotifications(
           this.prismaService,
           this.notificationService,
+          NotificationType.POST,
           userId,
-          post.id,
           'Create a new post',
+          post.id,
         );
         notifications.forEach((notification) => {
           this.notificationGateway.sendNotifications(userId, notification);
@@ -192,9 +193,10 @@ export class PostService {
         notifications = await createNotifications(
           this.prismaService,
           this.notificationService,
+          NotificationType.POST,
           userId,
-          post.id,
           'Create a new post',
+          post.id,
         );
         notifications.forEach((notification) => {
           this.notificationGateway.sendNotifications(userId, notification);
@@ -272,7 +274,10 @@ export class PostService {
       });
       const notification = await createNotification(
         this.notificationService,
+        NotificationType.SHARE,
         userId,
+        post.userId,
+        'Share your post',
         post,
       );
       if (notification) {

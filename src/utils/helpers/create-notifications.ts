@@ -6,9 +6,11 @@ import { PrismaService } from 'src/prisma/prisma.service';
 export async function createNotifications(
   prismaService: PrismaService,
   notificationService: NotificationService,
+  type: NotificationType,
   activeUserId: string,
-  postId: string,
   message: string,
+  postId?: string,
+  commentId?: string,
 ) {
   const users = await prismaService.user.findMany({
     where: {
@@ -21,10 +23,11 @@ export async function createNotifications(
     },
   });
   const notifications: CreateNotificationDto[] = users.map((user) => ({
-    type: NotificationType.POST,
+    type,
     senderId: activeUserId,
     receiverId: user.id,
     postId,
+    commentId,
     message,
   }));
 

@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { EmailModule } from './email/email.module';
 import { PostModule } from './post/post.module';
 import { NotificationModule } from './notification/notification.module';
+import { CommentModule } from './comment/comment.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { NotificationModule } from './notification/notification.module';
     EmailModule,
     PostModule,
     NotificationModule,
+    CommentModule,
   ],
 })
 
