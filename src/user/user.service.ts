@@ -4,10 +4,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  NotificationType,
-  ProviderType,
-} from 'generated/prisma';
+import { NotificationType, ProviderType } from 'generated/prisma';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { PrismaClientKnownRequestError } from 'generated/prisma/runtime/library';
@@ -26,7 +23,7 @@ export class UserService {
     private notificationGateway: NotificationGateway,
   ) {}
 
-  async findOne(username: string){
+  async findOne(username: string) {
     return await this.prisma.user.findUnique({
       where: {
         username,
@@ -34,9 +31,7 @@ export class UserService {
     });
   }
 
-  async createUser(
-    createUserDto: CreateUserDto | CreateSocialUserDto,
-  ){
+  async createUser(createUserDto: CreateUserDto | CreateSocialUserDto) {
     const { fullname, username, email, password, profileUrl, providerType } =
       createUserDto;
     try {
@@ -88,7 +83,7 @@ export class UserService {
     }
   }
 
-  async findById(id: string){
+  async findById(id: string) {
     try {
       const user = await this.prisma.user.findUnique({
         where: {
@@ -98,13 +93,13 @@ export class UserService {
           passwordHash: true,
         },
       });
-      if(!user){
+      if (!user) {
         throw new NotFoundException(`User id ${id} not found`);
       }
 
       return user;
     } catch (error: unknown) {
-      if(error instanceof NotFoundException){
+      if (error instanceof NotFoundException) {
         throw error;
       }
 
@@ -142,7 +137,7 @@ export class UserService {
     }
   }
 
-  async findByEmail(email: string){
+  async findByEmail(email: string) {
     return await this.prisma.user.findUnique({
       where: {
         email,
@@ -158,7 +153,7 @@ export class UserService {
     query: string,
     cursor?: string,
     limit: number = 5,
-  ){
+  ) {
     const users = await this.prisma.user.findMany({
       where: {
         fullname: {
@@ -193,11 +188,7 @@ export class UserService {
     };
   }
 
-  async findMany(
-    activeUserId: string,
-    cursor?: string,
-    limit: number = 5,
-  ){
+  async findMany(activeUserId: string, cursor?: string, limit: number = 5) {
     try {
       const activeUser = await this.prisma.user.findUnique({
         where: {
@@ -260,10 +251,7 @@ export class UserService {
     }
   }
 
-  async follow(
-    followerId: string,
-    followingId: string,
-  ){
+  async follow(followerId: string, followingId: string) {
     try {
       const followerUser = await this.findById(followerId);
       if (!followerUser) {
@@ -319,9 +307,12 @@ export class UserService {
       const notification = await this.notificationService.findByUser(
         followerId,
         followingId,
+        NotificationType.FOLLOW,
       );
-      await this.notificationService.delete(notification.id);
-      this.notificationGateway.sendNotifications(followerId, notification);
+      if (notification) {
+        await this.notificationService.delete(notification);
+        this.notificationGateway.sendNotifications(followerId, notification);
+      }
 
       return {
         status: 'unfollow',

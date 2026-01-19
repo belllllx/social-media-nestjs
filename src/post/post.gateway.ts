@@ -16,6 +16,10 @@ interface ServerToClientEvents {
       likes: Like[];
       user: Omit<User, 'passwordHash'>;
       filesUrl?: string[];
+      parent?: Post & { 
+        user: Omit<User, 'passwordHash'>; 
+        filesUrl?: string[];
+      } | null;
     },
   ) => void;
   updatePost: (
@@ -57,6 +61,10 @@ export class PostGateway implements OnGatewayConnection, OnGatewayDisconnect {
       likes: Like[];
       user: Omit<User, 'passwordHash'>;
       filesUrl?: string[];
+      parent?: Post & { 
+        user: Omit<User, 'passwordHash'>; 
+        filesUrl?: string[];
+      } | null;
     },
   ) {
     this.server.emit('createPost', post);

@@ -27,11 +27,7 @@ export class NotificationGateway
   private clients = new Map<string, Socket<any, ServerToClientEvents>>();
 
   handleConnection(client: Socket) {
-    handleWsConnection(
-      client,
-      this.jwtService,
-      this.clients,
-    );
+    handleWsConnection(client, this.jwtService, this.clients);
   }
 
   handleDisconnect(client: Socket) {

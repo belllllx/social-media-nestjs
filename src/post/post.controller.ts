@@ -32,6 +32,7 @@ import { FileTypeValidationPipe } from 'src/utils/validations/file-type-validati
 import { UpdatePostDto } from './dto/update-post.dto';
 import { ResponseFromService } from 'src/utils/types';
 import { DeleteFileDto } from './dto/delete-file.dto';
+import { CreateSharePostDto } from './dto/create-share-post.dto';
 import { Express } from 'express';
 
 @UseGuards(AtAuthGuard)
@@ -99,10 +100,10 @@ export class PostController {
   async createSharePost(
     @Param('userId', ParseUUIDPipe) userId: string,
     @Param('parentId', ParseUUIDPipe) parentId: string,
-    @Body() createPostDto: CreatePostDto,
+    @Body() createSharePostDto: CreateSharePostDto,
   ): Promise<ResponseFromService> {
     const sharePost = await this.postService.createSharePost({
-      ...createPostDto,
+      ...createSharePostDto,
       userId,
       parentId,
     });
@@ -235,10 +236,11 @@ export class PostController {
   async deletePost(
     @Param('postId', ParseUUIDPipe) postId: string,
   ): Promise<ResponseFromService> {
-    await this.postService.deletePost(postId);
+    const deletedPost = await this.postService.deletePost(postId);
 
     return {
       message: 'Post deleted successfully',
+      data: deletedPost,
     };
   }
 

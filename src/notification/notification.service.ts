@@ -6,6 +6,7 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { PrismaClientKnownRequestError } from 'generated/prisma/runtime/library';
+import { Notification, NotificationType, User } from 'generated/prisma';
 
 @Injectable()
 export class NotificationService {
@@ -65,7 +66,7 @@ export class NotificationService {
     activeUserId: string,
     cursor?: string,
     limit: number = 5,
-  ){
+  ) {
     const notifies = await this.prismaService.notification.findMany({
       where: {
         senderId: {
@@ -106,9 +107,7 @@ export class NotificationService {
     };
   }
 
-  async updateToRead(
-    notificationId: string,
-  ){
+  async updateToRead(notificationId: string) {
     try {
       const notification = await this.prismaService.notification.findUnique({
         where: {
@@ -152,25 +151,46 @@ export class NotificationService {
   async findByUser(
     senderId: string,
     receiverId: string,
+    type: NotificationType,
+    postId?: string,
+    commentId?: string,
   ) {
     try {
-      const notification = await this.prismaService.notification.findFirst({
-        where: {
-          senderId,
-          receiverId,
-        },
-        include: {
-          sender: {
-            omit: {
-              passwordHash: true,
+      let notification:
+        | (Notification & { sender: Omit<User, 'passwordHash'> })
+        | null;
+      if (postId || commentId) {
+        notification = await this.prismaService.notification.findFirst({
+          where: {
+            senderId,
+            receiverId,
+            type,
+            postId,
+            commentId,
+          },
+          include: {
+            sender: {
+              omit: {
+                passwordHash: true,
+              },
             },
           },
-        },
-      });
-      if (!notification) {
-        throw new NotFoundException(
-          `Notification from senderId ${senderId} and receiverId ${receiverId} not found`,
-        );
+        });
+      } else {
+        notification = await this.prismaService.notification.findFirst({
+          where: {
+            senderId,
+            receiverId,
+            type,
+          },
+          include: {
+            sender: {
+              omit: {
+                passwordHash: true,
+              },
+            },
+          },
+        });
       }
 
       return notification;
@@ -180,19 +200,22 @@ export class NotificationService {
           error,
           'Error something went wrong',
         );
-      } else if (error instanceof NotFoundException) {
-        throw error;
       }
 
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
 
-  delete(notificationId: string) {
+  delete(notification: Notification) {
     try {
+      const { id, senderId, receiverId, type } = notification;
+
       return this.prismaService.notification.delete({
         where: {
-          id: notificationId,
+          id,
+          senderId,
+          receiverId,
+          type,
         },
       });
     } catch (error: unknown) {

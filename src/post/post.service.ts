@@ -36,6 +36,7 @@ import { PostGateway } from './post.gateway';
 import { deleteFileFromS3 } from 'src/utils/helpers/delete-file-from-s3';
 import { getFiles } from 'src/utils/helpers/get-files';
 import { getFileInfo } from 'src/utils/helpers/get-file-info';
+import { CreateSharePostDto } from './dto/create-share-post.dto';
 import { Express } from 'express';
 
 @Injectable()
@@ -222,7 +223,7 @@ export class PostService {
   }
 
   async createSharePost(
-    createPostDto: CreatePostDto & { userId: string; parentId: string },
+    createPostDto: CreateSharePostDto & { userId: string; parentId: string },
   ) {
     const { message, userId, parentId } = createPostDto;
 
@@ -232,6 +233,13 @@ export class PostService {
       const post = await this.prismaService.post.findUnique({
         where: {
           id: parentId,
+        },
+        include: {
+          user: {
+            omit: {
+              passwordHash: true,
+            },
+          },
         },
       });
       if (!post) {
@@ -251,6 +259,15 @@ export class PostService {
               passwordHash: true,
             },
           },
+          parent: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
         },
       });
       const notification = await createNotification(
@@ -261,9 +278,28 @@ export class PostService {
       if (notification) {
         this.notificationGateway.sendNotifications(userId, notification);
       }
-      this.postGateway.newPost(sharePost);
 
-      return sharePost;
+      const filesFromS3 = await getFiles(
+        post.id,
+        this.prismaService,
+        this.configService,
+        this.s3,
+      );
+      this.postGateway.newPost({
+        ...sharePost,
+        parent: {
+          ...post,
+          filesUrl: filesFromS3,
+        },
+      });
+
+      return {
+        ...sharePost,
+        parent: {
+          ...post,
+          filesUrl: filesFromS3,
+        },
+      };
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
         throw new InternalServerErrorException(error.message);
@@ -782,6 +818,9 @@ export class PostService {
         where: {
           id: postId,
         },
+        include: {
+          parent: true,
+        },
       });
       if (!post) {
         throw new NotFoundException(`Post id ${postId} not found`);
@@ -802,40 +841,44 @@ export class PostService {
         const notification = await this.notificationService.findByUser(
           post.userId,
           user.id,
+          post.parent ? NotificationType.SHARE : NotificationType.POST,
+          post.id,
         );
-        await this.notificationService.delete(notification.id);
-        this.notificationGateway.sendNotifications(post.userId, notification);
+        if (notification) {
+          this.notificationGateway.sendNotifications(post.userId, notification);
+        }
       }
 
       const postFiles = await findFiles(post.id, this.prismaService);
-      await Promise.all([
-        ...postFiles.map((postFile) => {
-          const { fileDir, fileName } = getFileInfo(postFile.fileName);
-          return deleteObjectS3(
-            fileName,
-            this.configService.get<string>('AWS_BUCKET_NAME')!,
-            fileDir as FileDir,
-            this.s3,
-          );
-        }),
-        ...postFiles.map((postFile) => {
-          return this.prismaService.file.delete({
-            where: {
-              id: postFile.id,
-              fileName: postFile.fileName,
-              contentId: post.id,
-              contentType: ContentType.POST,
-            },
-          });
-        }),
-        this.prismaService.post.delete({
+
+      for (const postFile of postFiles) {
+        const { fileDir, fileName } = getFileInfo(postFile.fileName);
+        await deleteObjectS3(
+          fileName,
+          this.configService.get<string>('AWS_BUCKET_NAME')!,
+          fileDir as FileDir,
+          this.s3,
+        );
+
+        await this.prismaService.file.delete({
           where: {
-            id: postId,
+            id: postFile.id,
+            fileName: postFile.fileName,
+            contentId: post.id,
+            contentType: ContentType.POST,
           },
-        }),
-      ]);
+        });
+      }
+
+      const deletedPost = await this.prismaService.post.delete({
+        where: {
+          id: postId,
+        },
+      });
 
       this.postGateway.deletePost(post);
+
+      return deletedPost;
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
         throw new InternalServerErrorException(error.message);
@@ -914,7 +957,8 @@ export class PostService {
           type: NotificationType.LIKE,
           senderId: activeUserId,
           receiverId: post.userId,
-          message: `${user.fullname} like your post`,
+          postId,
+          message: 'Like your post',
         });
         this.notificationGateway.sendNotifications(activeUserId, notification);
         this.postGateway.newLike(createdLike);
@@ -943,9 +987,12 @@ export class PostService {
       const notification = await this.notificationService.findByUser(
         activeUserId,
         post.userId,
+        NotificationType.LIKE,
       );
-      await this.notificationService.delete(notification.id);
-      this.notificationGateway.sendNotifications(activeUserId, notification);
+      if (notification) {
+        await this.notificationService.delete(notification);
+        this.notificationGateway.sendNotifications(activeUserId, notification);
+      }
 
       this.postGateway.newLike(deletedLike);
 
