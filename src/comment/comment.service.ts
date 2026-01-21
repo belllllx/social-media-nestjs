@@ -4,6 +4,7 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NotificationGateway } from 'src/notification/notification.gateway';
@@ -16,10 +17,7 @@ import { getFileDirFromFileMulter } from 'src/utils/helpers/get-file-dir-from-fi
 import { putObjectS3 } from 'src/utils/helpers/put-object-s3';
 import { getObjectS3 } from 'src/utils/helpers/get-object-s3';
 import { FileDir } from 'src/utils/types';
-import {
-  ContentType,
-  NotificationType,
-} from 'generated/prisma';
+import { ContentType, NotificationType } from 'generated/prisma';
 import { getFileNameFromPresignedUrl } from 'src/utils/helpers/get-filename-from-presigned-url';
 import { getFileDirFromPresignedUrl } from 'src/utils/helpers/get-file-dir-from-presigned-url';
 import { deleteFileFromS3 } from 'src/utils/helpers/delete-file-from-s3';
@@ -27,6 +25,11 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { getFiles } from 'src/utils/helpers/get-files';
 import { createNotification } from 'src/utils/helpers/create-notification';
+import { UpdateCommentDto } from './dto/update-comment.dto';
+import { getFileInfo } from 'src/utils/helpers/get-file-info';
+import { findFiles } from 'src/utils/helpers/find-files';
+import { deleteObjectS3 } from 'src/utils/helpers/delete-object-s3';
+import { Express } from 'express';
 
 @Injectable()
 export class CommentService {
@@ -54,14 +57,8 @@ export class CommentService {
 
   async createFile(file: Express.Multer.File) {
     try {
-      if (!file) {
-        throw new BadRequestException('File cannot be empty');
-      }
-
-      let fileDir: FileDir;
-
       const newFileName = genFilesName(file);
-      fileDir = getFileDirFromFileMulter(newFileName, 'comment');
+      const fileDir = getFileDirFromFileMulter(newFileName, 'comment');
       await putObjectS3(
         newFileName,
         this.configService.get<string>('AWS_BUCKET_NAME')!,
@@ -69,8 +66,7 @@ export class CommentService {
         this.s3,
       );
 
-      fileDir = getFileDirFromFileMulter(newFileName, 'comment');
-      const filesUrl = await getObjectS3(
+      const fileUrl = await getObjectS3(
         newFileName,
         this.configService.get<string>('AWS_BUCKET_NAME')!,
         fileDir,
@@ -85,11 +81,11 @@ export class CommentService {
       });
 
       return {
-        filesUrl,
+        fileUrl,
       };
     } catch (error: unknown) {
-      if (error instanceof BadRequestException) {
-        throw error;
+      if (error instanceof PrismaClientKnownRequestError) {
+        throw new InternalServerErrorException(error.message);
       }
 
       throw new InternalServerErrorException(error, 'Unexpected error');
@@ -160,7 +156,6 @@ export class CommentService {
           postId,
         },
         include: {
-          likes: true,
           user: {
             omit: {
               passwordHash: true,
@@ -175,7 +170,7 @@ export class CommentService {
           NotificationType.COMMENT,
           userId,
           post.userId,
-          'Create a new comment',
+          'Comment on your post',
           post,
           comment.id,
         );
@@ -211,7 +206,7 @@ export class CommentService {
           });
         }
 
-        const filesFromS3 = await getFiles(
+        const fileFromS3 = await getFiles(
           comment.id,
           this.prismaService,
           this.configService,
@@ -223,7 +218,7 @@ export class CommentService {
           NotificationType.COMMENT,
           userId,
           post.userId,
-          'Create a new comment',
+          'Comment on your post',
           post,
           comment.id,
         );
@@ -233,12 +228,12 @@ export class CommentService {
 
         this.commentGateway.newComment({
           ...comment,
-          filesUrl: filesFromS3,
+          fileUrl: fileFromS3[0],
         });
 
         return {
           ...comment,
-          filesUrl: filesFromS3,
+          fileUrl: fileFromS3[0],
         };
       }
 
@@ -265,6 +260,9 @@ export class CommentService {
     },
   ) {
     const { message, fileUrl, userId, parentId, postId } = createCommentDto;
+    if (!message && !fileUrl) {
+      throw new BadRequestException('Comment must contain a message or file');
+    }
 
     try {
       await this.userService.findById(userId);
@@ -302,7 +300,6 @@ export class CommentService {
           parentId,
         },
         include: {
-          likes: true,
           user: {
             omit: {
               passwordHash: true,
@@ -323,7 +320,7 @@ export class CommentService {
       if (!fileUrl) {
         const notification = await createNotification(
           this.notificationService,
-          NotificationType.SHARE,
+          NotificationType.REPLY,
           userId,
           commentParent.userId,
           'Reply your comment',
@@ -361,7 +358,7 @@ export class CommentService {
         });
       }
 
-      const filesFromS3 = await getFiles(
+      const fileFromS3 = await getFiles(
         comment.id,
         this.prismaService,
         this.configService,
@@ -370,7 +367,7 @@ export class CommentService {
 
       const notification = await createNotification(
         this.notificationService,
-        NotificationType.COMMENT,
+        NotificationType.REPLY,
         userId,
         commentParent.userId,
         'Reply your comment',
@@ -383,13 +380,390 @@ export class CommentService {
 
       this.commentGateway.newComment({
         ...comment,
-        filesUrl: filesFromS3,
+        fileUrl: fileFromS3[0],
       });
 
       return {
         ...comment,
-        filesUrl: filesFromS3,
+        fileUrl: fileFromS3[0],
       };
+    } catch (error: unknown) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        throw new InternalServerErrorException(error.message);
+      } else if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(error, 'Unexpected error');
+    }
+  }
+
+  async findComments(postId: string, cursor?: string, limit: number = 5) {
+    try {
+      const commentOfPost = await this.prismaService.post.findUnique({
+        where: {
+          id: postId,
+        },
+      });
+      if (!commentOfPost) {
+        throw new NotFoundException(`Post id ${postId} not found`);
+      }
+
+      const comments = await this.prismaService.comment.findMany({
+        take: -(limit + 1),
+        cursor: cursor
+          ? {
+              id: cursor,
+            }
+          : undefined,
+        include: {
+          likes: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
+          user: {
+            omit: {
+              passwordHash: true,
+            },
+          },
+          parent: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
+        },
+        where: {
+          postId: commentOfPost.id,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      const commentsWithFiles = await Promise.all(
+        comments.map(async (comment) => {
+          const filesFromS3 = await getFiles(
+            comment.id,
+            this.prismaService,
+            this.configService,
+            this.s3,
+          );
+
+          if (comment.parent) {
+            const commentParentFilesFromS3 = await getFiles(
+              comment.parent.id,
+              this.prismaService,
+              this.configService,
+              this.s3,
+            );
+
+            return {
+              ...comment,
+              fileUrl: filesFromS3[0],
+              parent: {
+                ...comment.parent,
+                fileUrl: commentParentFilesFromS3[0],
+              },
+            };
+          }
+
+          return {
+            ...comment,
+            fileUrl: filesFromS3[0],
+          };
+        }),
+      );
+
+      let nextCursor: string | null = null;
+
+      if (commentsWithFiles.length > limit) {
+        const nextItem = commentsWithFiles.shift();
+        nextCursor = nextItem!.id;
+      }
+
+      return {
+        comments: commentsWithFiles,
+        nextCursor,
+      };
+    } catch (error: unknown) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        throw new InternalServerErrorException(error.message);
+      } else if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(error, 'Unexpected error');
+    }
+  }
+
+  async updateComment(
+    updateCommentDto: UpdateCommentDto & { commentId: string },
+  ) {
+    const { message, fileUrl, shouldDeleteCurrentFile, commentId } =
+      updateCommentDto;
+
+    if (!message && !fileUrl) {
+      throw new BadRequestException('Comment must contain a message or file');
+    }
+
+    try {
+      const commentRecord = await this.prismaService.comment.findUnique({
+        where: {
+          id: commentId,
+        },
+      });
+      if (!commentRecord) {
+        throw new NotFoundException(`Comment id ${commentId} not found`);
+      }
+
+      const comment = await this.prismaService.comment.update({
+        where: {
+          id: commentId,
+        },
+        data: {
+          message,
+        },
+        include: {
+          likes: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
+          user: {
+            omit: {
+              passwordHash: true,
+            },
+          },
+          parent: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!fileUrl || !shouldDeleteCurrentFile) {
+        const fileRecords = await this.prismaService.file.findMany({
+          where: {
+            contentId: comment.id,
+            contentType: ContentType.COMMENT,
+          },
+        });
+
+        let filesData: { fileName: string; fileDir: FileDir }[] = [];
+        fileRecords.forEach((fileRecord) => {
+          const { fileDir, fileName } = getFileInfo(fileRecord.fileName);
+          filesData.push({
+            fileName,
+            fileDir: fileDir as FileDir,
+          });
+        });
+        const filesUrl = await Promise.all(
+          filesData.map((fileData) => {
+            return getObjectS3(
+              fileData.fileName,
+              this.configService.get<string>('AWS_BUCKET_NAME')!,
+              fileData.fileDir,
+              this.s3,
+            );
+          }),
+        );
+
+        this.commentGateway.updateComment({
+          ...comment,
+          fileUrl: filesUrl[0],
+        });
+
+        return {
+          ...comment,
+          fileUrl: filesUrl[0],
+        };
+      }
+
+      if (fileUrl && shouldDeleteCurrentFile) {
+        const commentFiles = await findFiles(comment.id, this.prismaService);
+
+        if (commentFiles && commentFiles.length) {
+          await Promise.all(
+            commentFiles.map((commentFile) => {
+              const { fileDir, fileName } = getFileInfo(commentFile.fileName);
+              return deleteObjectS3(
+                fileName,
+                this.configService.get<string>('AWS_BUCKET_NAME')!,
+                fileDir as FileDir,
+                this.s3,
+              );
+            }),
+          );
+        }
+
+        const fileDir = getFileDirFromPresignedUrl(fileUrl) as FileDir;
+        const filename = getFileNameFromPresignedUrl(fileUrl);
+        const fileUrlS3 = await getObjectS3(
+          filename,
+          this.configService.get<string>('AWS_BUCKET_NAME')!,
+          fileDir,
+          this.s3,
+        );
+
+        await Promise.all(
+          commentFiles.map(async (commentFile) => {
+            return this.prismaService.file.deleteMany({
+              where: {
+                fileName: commentFile.fileName,
+                contentId: comment.id,
+                contentType: ContentType.COMMENT,
+              },
+            });
+          }),
+        );
+
+        const newfileDir = getFileDirFromPresignedUrl(fileUrl);
+        const newfileName = getFileNameFromPresignedUrl(fileUrl);
+
+        const file = await this.prismaService.file.findFirst({
+          where: {
+            fileName: `${newfileDir}/${newfileName}`,
+            contentType: ContentType.COMMENT,
+          },
+        });
+
+        if (file) {
+          await this.prismaService.file.update({
+            data: {
+              contentId: comment.id,
+            },
+            where: {
+              id: file.id,
+              fileName: `${newfileDir}/${newfileName}`,
+              contentType: ContentType.COMMENT,
+            },
+          });
+        }
+
+        this.commentGateway.updateComment({
+          ...comment,
+          fileUrl: fileUrlS3,
+        });
+
+        return {
+          ...comment,
+          fileUrl: fileUrlS3,
+        };
+      }
+
+      throw new UnprocessableEntityException('Error cannot update post');
+    } catch (error) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        throw new InternalServerErrorException(error.message);
+      } else if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof UnprocessableEntityException
+      ) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(error, 'Unexpected error');
+    }
+  }
+
+  async deleteComment(commentId: string, postId: string) {
+    try {
+      const post = await this.prismaService.post.findUnique({
+        where: {
+          id: postId,
+        },
+      });
+      if (!post) {
+        throw new NotFoundException(`Post id ${postId} not found`);
+      }
+
+      const comment = await this.prismaService.comment.findUnique({
+        where: {
+          id: commentId,
+        },
+        include: {
+          parent: true,
+        },
+      });
+      if (!comment) {
+        throw new NotFoundException(`Comment id ${commentId} not found`);
+      }
+
+      const users = await this.prismaService.user.findMany({
+        where: {
+          id: {
+            not: comment.userId,
+          },
+        },
+        omit: {
+          passwordHash: true,
+        },
+      });
+
+      for (const user of users) {
+        const notification = await this.notificationService.findByUser(
+          comment.userId,
+          user.id,
+          comment.parent ? NotificationType.REPLY : NotificationType.COMMENT,
+          post.id,
+          comment.id,
+        );
+        if (notification) {
+          this.notificationGateway.sendNotifications(
+            comment.userId,
+            notification,
+          );
+        }
+      }
+
+      const commentFiles = await findFiles(comment.id, this.prismaService);
+      for (const commentFile of commentFiles) {
+        const { fileDir, fileName } = getFileInfo(commentFile.fileName);
+        await deleteObjectS3(
+          fileName,
+          this.configService.get<string>('AWS_BUCKET_NAME')!,
+          fileDir as FileDir,
+          this.s3,
+        );
+
+        await this.prismaService.file.delete({
+          where: {
+            id: commentFile.id,
+            fileName: commentFile.fileName,
+            contentId: comment.id,
+            contentType: ContentType.COMMENT,
+          },
+        });
+      }
+
+      const deletedComment = await this.prismaService.comment.delete({
+        where: {
+          id: comment.id,
+        },
+      });
+
+      this.commentGateway.deleteComment(deletedComment);
+
+      return deletedComment;
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
         throw new InternalServerErrorException(error.message);

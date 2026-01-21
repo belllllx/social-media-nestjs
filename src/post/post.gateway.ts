@@ -13,7 +13,6 @@ import { handleWsDisconnection } from 'src/utils/helpers/handle-ws-disconnection
 interface ServerToClientEvents {
   createPost: (
     post: Post & {
-      likes: Like[];
       user: Omit<User, 'passwordHash'>;
       filesUrl?: string[];
       parent?: Post & { 
@@ -28,6 +27,7 @@ interface ServerToClientEvents {
       user: Omit<User, 'passwordHash'>;
       parent: (Post & { user: Omit<User, 'passwordHash'> }) | null;
       filesUrl?: string[];
+      commentsCount: number,
     },
   ) => void;
   deletePost: (post: Post) => void;
@@ -58,7 +58,6 @@ export class PostGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   newPost(
     post: Post & {
-      likes: Like[];
       user: Omit<User, 'passwordHash'>;
       filesUrl?: string[];
       parent?: Post & { 
@@ -76,6 +75,7 @@ export class PostGateway implements OnGatewayConnection, OnGatewayDisconnect {
       user: Omit<User, 'passwordHash'>;
       parent: (Post & { user: Omit<User, 'passwordHash'> }) | null;
       filesUrl?: string[];
+      commentsCount: number,
     },
   ) {
     this.server.emit('updatePost', post);

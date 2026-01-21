@@ -131,7 +131,6 @@ export class PostService {
           userId,
         },
         include: {
-          likes: true,
           user: {
             omit: {
               passwordHash: true,
@@ -255,7 +254,6 @@ export class PostService {
           parentId,
         },
         include: {
-          likes: true,
           user: {
             omit: {
               passwordHash: true,
@@ -349,6 +347,15 @@ export class PostService {
               },
             },
           },
+          comments: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
@@ -374,6 +381,7 @@ export class PostService {
 
             return {
               ...post,
+              commentsCount: post.comments.length,
               filesUrl: filesFromS3,
               parent: {
                 ...post.parent,
@@ -384,6 +392,7 @@ export class PostService {
 
           return {
             ...post,
+            commentsCount: post.comments.length,
             filesUrl: filesFromS3,
           };
         }),
@@ -439,6 +448,15 @@ export class PostService {
               },
             },
           },
+          comments: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
         },
       });
       if (!post) {
@@ -462,6 +480,7 @@ export class PostService {
 
         return {
           ...post,
+          commentsCount: post.comments.length,
           filesUrl: filesFromS3,
           parent: {
             ...post.parent,
@@ -472,6 +491,7 @@ export class PostService {
 
       return {
         ...post,
+        commentsCount: post.comments.length,
         filesUrl: filesFromS3,
       };
     } catch (error: unknown) {
@@ -523,6 +543,15 @@ export class PostService {
               },
             },
           },
+          comments: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
@@ -551,6 +580,7 @@ export class PostService {
 
             return {
               ...post,
+              commentsCount: post.comments.length,
               filesUrl: filesFromS3,
               parent: {
                 ...post.parent,
@@ -561,6 +591,7 @@ export class PostService {
 
           return {
             ...post,
+            commentsCount: post.comments.length,
             filesUrl: filesFromS3,
           };
         }),
@@ -636,6 +667,15 @@ export class PostService {
               },
             },
           },
+          comments: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -676,11 +716,13 @@ export class PostService {
 
           this.postGateway.updatePost({
             ...post,
+            commentsCount: post.comments.length,
             filesUrl,
           });
 
           return {
             ...post,
+            commentsCount: post.comments.length,
             filesUrl,
             parent: {
               ...post.parent,
@@ -691,11 +733,13 @@ export class PostService {
 
         this.postGateway.updatePost({
           ...post,
+          commentsCount: post.comments.length,
           filesUrl,
         });
 
         return {
           ...post,
+          commentsCount: post.comments.length,
           filesUrl,
         };
       }
@@ -777,11 +821,13 @@ export class PostService {
 
           this.postGateway.updatePost({
             ...post,
+            commentsCount: post.comments.length,
             filesUrl: filesUrlS3,
           });
 
           return {
             ...post,
+            commentsCount: post.comments.length,
             filesUrl,
             parent: {
               ...post.parent,
@@ -792,11 +838,13 @@ export class PostService {
 
         this.postGateway.updatePost({
           ...post,
+          commentsCount: post.comments.length,
           filesUrl: filesUrlS3,
         });
 
         return {
           ...post,
+          commentsCount: post.comments.length,
           filesUrl: filesUrlS3,
         };
       }

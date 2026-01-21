@@ -7,10 +7,11 @@ import {
 } from 'class-validator';
 
 export class CreateCommentDto {
-  @ApiProperty()
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  message: string;
+  message?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()

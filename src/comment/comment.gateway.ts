@@ -13,13 +13,12 @@ import { handleWsDisconnection } from 'src/utils/helpers/handle-ws-disconnection
 interface ServerToClientEvents {
   createComment: (
     comment: Comment & {
-      likes: Like[];
       user: Omit<User, 'passwordHash'>;
-      filesUrl?: string[];
+      fileUrl?: string;
       parent?:
         | (Comment & {
             user: Omit<User, 'passwordHash'>;
-            filesUrl?: string[];
+            fileUrl?: string;
           })
         | null;
     },
@@ -29,11 +28,11 @@ interface ServerToClientEvents {
       likes: (Like & { user: Omit<User, 'passwordHash'> })[];
       user: Omit<User, 'passwordHash'>;
       parent: (Comment & { user: Omit<User, 'passwordHash'> }) | null;
-      filesUrl?: string[];
+      fileUrl?: string;
     },
   ) => void;
   deleteComment: (comment: Comment) => void;
-  newLike: (like: Like) => void;
+  newLikeComment: (like: Like) => void;
 }
 
 @WebSocketGateway({
@@ -60,13 +59,12 @@ export class CommentGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
   newComment(
     comment: Comment & {
-      likes: Like[];
       user: Omit<User, 'passwordHash'>;
-      filesUrl?: string[];
+      fileUrl?: string;
       parent?:
         | (Comment & {
             user: Omit<User, 'passwordHash'>;
-            filesUrl?: string[];
+            fileUrl?: string;
           })
         | null;
     },
@@ -79,7 +77,7 @@ export class CommentGateway implements OnGatewayConnection, OnGatewayDisconnect 
       likes: (Like & { user: Omit<User, 'passwordHash'> })[];
       user: Omit<User, 'passwordHash'>;
       parent: (Comment & { user: Omit<User, 'passwordHash'> }) | null;
-      filesUrl?: string[];
+      fileUrl?: string;
     },
   ) {
     this.server.emit('updateComment', comment);
@@ -90,6 +88,6 @@ export class CommentGateway implements OnGatewayConnection, OnGatewayDisconnect 
   }
 
   newLike(like: Like) {
-    this.server.emit('newLike', like);
+    this.server.emit('newLikeComment', like);
   }
 }
