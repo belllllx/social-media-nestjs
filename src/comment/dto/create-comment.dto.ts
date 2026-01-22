@@ -10,7 +10,6 @@ export class CreateCommentDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
-  @IsNotEmpty()
   message?: string;
 
   @ApiProperty({ required: false })

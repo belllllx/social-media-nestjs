@@ -156,6 +156,7 @@ export class CommentService {
           postId,
         },
         include: {
+          likes: true,
           user: {
             omit: {
               passwordHash: true,
@@ -300,6 +301,7 @@ export class CommentService {
           parentId,
         },
         include: {
+          likes: true,
           user: {
             omit: {
               passwordHash: true,
@@ -720,18 +722,36 @@ export class CommentService {
       });
 
       for (const user of users) {
-        const notification = await this.notificationService.findByUser(
-          comment.userId,
-          user.id,
-          comment.parent ? NotificationType.REPLY : NotificationType.COMMENT,
-          post.id,
-          comment.id,
-        );
-        if (notification) {
-          this.notificationGateway.sendNotifications(
+        if (comment.parent) {
+          const notification = await this.notificationService.findByUser(
             comment.userId,
-            notification,
+            user.id,
+            NotificationType.REPLY,
+            post.id,
+            comment.parent.id,
           );
+          if (notification) {
+            await this.notificationService.delete(notification);
+
+            this.notificationGateway.sendNotifications(
+              comment.userId,
+              notification,
+            );
+          }
+        } else {
+          const notification = await this.notificationService.findByUser(
+            comment.userId,
+            user.id,
+            NotificationType.COMMENT,
+            post.id,
+            comment.id,
+          );
+          if (notification) {
+            this.notificationGateway.sendNotifications(
+              comment.userId,
+              notification,
+            );
+          }
         }
       }
 

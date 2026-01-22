@@ -131,6 +131,7 @@ export class PostService {
           userId,
         },
         include: {
+          likes: true,
           user: {
             omit: {
               passwordHash: true,
@@ -254,6 +255,7 @@ export class PostService {
           parentId,
         },
         include: {
+          likes: true,
           user: {
             omit: {
               passwordHash: true,
@@ -891,14 +893,34 @@ export class PostService {
       });
 
       for (const user of users) {
-        const notification = await this.notificationService.findByUser(
-          post.userId,
-          user.id,
-          post.parent ? NotificationType.SHARE : NotificationType.POST,
-          post.id,
-        );
-        if (notification) {
-          this.notificationGateway.sendNotifications(post.userId, notification);
+        if (post.parent) {
+          const notification = await this.notificationService.findByUser(
+            post.userId,
+            user.id,
+            NotificationType.SHARE,
+            post.parent.id,
+          );
+          if (notification) {
+            await this.notificationService.delete(notification);
+            
+            this.notificationGateway.sendNotifications(
+              post.userId,
+              notification,
+            );
+          }
+        } else {
+          const notification = await this.notificationService.findByUser(
+            post.userId,
+            user.id,
+            NotificationType.POST,
+            post.id,
+          );
+          if (notification) {
+            this.notificationGateway.sendNotifications(
+              post.userId,
+              notification,
+            );
+          }
         }
       }
 
