@@ -442,6 +442,15 @@ export class CommentService {
               },
             },
           },
+          replies: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
         },
         where: {
           postId: commentOfPost.id,
@@ -470,6 +479,7 @@ export class CommentService {
 
             return {
               ...comment,
+              replysCount: comment.replies.length,
               fileUrl: filesFromS3[0],
               parent: {
                 ...comment.parent,
@@ -480,6 +490,7 @@ export class CommentService {
 
           return {
             ...comment,
+            replysCount: comment.replies.length,
             fileUrl: filesFromS3[0],
           };
         }),
@@ -558,6 +569,15 @@ export class CommentService {
               },
             },
           },
+          replies: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -590,11 +610,13 @@ export class CommentService {
 
         this.commentGateway.updateComment({
           ...comment,
+          replysCount: comment.replies.length,
           fileUrl: filesUrl[0],
         });
 
         return {
           ...comment,
+          replysCount: comment.replies.length,
           fileUrl: filesUrl[0],
         };
       }
@@ -662,11 +684,13 @@ export class CommentService {
 
         this.commentGateway.updateComment({
           ...comment,
+          replysCount: comment.replies.length,
           fileUrl: fileUrlS3,
         });
 
         return {
           ...comment,
+          replysCount: comment.replies.length,
           fileUrl: fileUrlS3,
         };
       }

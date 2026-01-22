@@ -29,6 +29,7 @@ interface ServerToClientEvents {
       user: Omit<User, 'passwordHash'>;
       parent: (Comment & { user: Omit<User, 'passwordHash'> }) | null;
       fileUrl?: string;
+      replysCount: number;
     },
   ) => void;
   deleteComment: (comment: Comment) => void;
@@ -78,6 +79,7 @@ export class CommentGateway implements OnGatewayConnection, OnGatewayDisconnect 
       user: Omit<User, 'passwordHash'>;
       parent: (Comment & { user: Omit<User, 'passwordHash'> }) | null;
       fileUrl?: string;
+      replysCount: number;
     },
   ) {
     this.server.emit('updateComment', comment);
