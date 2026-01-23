@@ -21,6 +21,7 @@ interface ServerToClientEvents {
             fileUrl?: string;
           })
         | null;
+      replysCount: number;
     },
   ) => void;
   updateComment: (
@@ -42,7 +43,9 @@ interface ServerToClientEvents {
     credentials: true,
   },
 })
-export class CommentGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class CommentGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   constructor(private jwtService: JwtService) {}
 
   @WebSocketServer()
@@ -68,6 +71,7 @@ export class CommentGateway implements OnGatewayConnection, OnGatewayDisconnect 
             fileUrl?: string;
           })
         | null;
+      replysCount: number;
     },
   ) {
     this.server.emit('createComment', comment);

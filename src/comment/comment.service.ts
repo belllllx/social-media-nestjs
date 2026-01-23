@@ -162,6 +162,24 @@ export class CommentService {
               passwordHash: true,
             },
           },
+          replies: {
+            include: {
+              likes: {
+                include: {
+                  user: {
+                    omit: {
+                      passwordHash: true,
+                    },
+                  },
+                },
+              },
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -178,9 +196,15 @@ export class CommentService {
         if (notification) {
           this.notificationGateway.sendNotifications(userId, notification);
         }
-        this.commentGateway.newComment(comment);
+        this.commentGateway.newComment({
+          ...comment,
+          replysCount: comment.replies.length,
+        });
 
-        return comment;
+        return {
+          ...comment,
+          replysCount: comment.replies.length,
+        };
       }
 
       if (fileUrl) {
@@ -229,11 +253,13 @@ export class CommentService {
 
         this.commentGateway.newComment({
           ...comment,
+          replysCount: comment.replies.length,
           fileUrl: fileFromS3[0],
         });
 
         return {
           ...comment,
+          replysCount: comment.replies.length,
           fileUrl: fileFromS3[0],
         };
       }
@@ -316,6 +342,24 @@ export class CommentService {
               },
             },
           },
+          replies: {
+            include: {
+              likes: {
+                include: {
+                  user: {
+                    omit: {
+                      passwordHash: true,
+                    },
+                  },
+                },
+              },
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -332,9 +376,15 @@ export class CommentService {
         if (notification) {
           this.notificationGateway.sendNotifications(userId, notification);
         }
-        this.commentGateway.newComment(comment);
+        this.commentGateway.newComment({
+          ...comment,
+          replysCount: comment.replies.length,
+        });
 
-        return comment;
+        return {
+          ...comment,
+          replysCount: comment.replies.length,
+        };
       }
 
       const fileDir = getFileDirFromPresignedUrl(fileUrl);
@@ -382,11 +432,13 @@ export class CommentService {
 
       this.commentGateway.newComment({
         ...comment,
+        replysCount: comment.replies.length,
         fileUrl: fileFromS3[0],
       });
 
       return {
         ...comment,
+        replysCount: comment.replies.length,
         fileUrl: fileFromS3[0],
       };
     } catch (error: unknown) {
@@ -444,6 +496,15 @@ export class CommentService {
           },
           replies: {
             include: {
+              likes: {
+                include: {
+                  user: {
+                    omit: {
+                      passwordHash: true,
+                    },
+                  },
+                },
+              },
               user: {
                 omit: {
                   passwordHash: true,
@@ -460,8 +521,10 @@ export class CommentService {
         },
       });
 
+      const filterOnlyComment = comments.filter((comment) => !comment.parentId);
+
       const commentsWithFiles = await Promise.all(
-        comments.map(async (comment) => {
+        filterOnlyComment.map(async (comment) => {
           const filesFromS3 = await getFiles(
             comment.id,
             this.prismaService,
@@ -571,6 +634,15 @@ export class CommentService {
           },
           replies: {
             include: {
+              likes: {
+                include: {
+                  user: {
+                    omit: {
+                      passwordHash: true,
+                    },
+                  },
+                },
+              },
               user: {
                 omit: {
                   passwordHash: true,
@@ -808,6 +880,108 @@ export class CommentService {
       this.commentGateway.deleteComment(deletedComment);
 
       return deletedComment;
+    } catch (error: unknown) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        throw new InternalServerErrorException(error.message);
+      } else if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(error, 'Unexpected error');
+    }
+  }
+
+  async like(activeUserId: string, postId: string, commentId: string) {
+    try {
+      await this.userService.findById(activeUserId);
+      const post = await this.prismaService.post.findUnique({
+        where: {
+          id: postId,
+        },
+      });
+      if (!post) {
+        throw new NotFoundException(`Post id ${postId} not found`);
+      }
+
+      const comment = await this.prismaService.comment.findUnique({
+        where: {
+          id: commentId,
+        },
+      });
+      if (!comment) {
+        throw new NotFoundException(`Comment id ${postId} not found`);
+      }
+
+      const like = await this.prismaService.like.findFirst({
+        where: {
+          userId: activeUserId,
+          commentId,
+        },
+      });
+      if (!like) {
+        const createdLike = await this.prismaService.like.create({
+          data: {
+            userId: activeUserId,
+            commentId,
+          },
+          include: {
+            user: {
+              omit: {
+                passwordHash: true,
+              },
+            },
+          },
+        });
+        const notification = await this.notificationService.create({
+          type: NotificationType.LIKE,
+          senderId: activeUserId,
+          receiverId: comment.userId,
+          postId,
+          commentId,
+          message: 'Like your comment',
+        });
+        this.notificationGateway.sendNotifications(activeUserId, notification);
+        this.commentGateway.newLike(createdLike);
+
+        return {
+          message: 'Like successfully',
+          data: createdLike,
+        };
+      }
+
+      const deletedLike = await this.prismaService.like.delete({
+        where: {
+          id: like.id,
+          userId: activeUserId,
+          commentId,
+        },
+        include: {
+          user: {
+            omit: {
+              passwordHash: true,
+            },
+          },
+        },
+      });
+
+      const notification = await this.notificationService.findByUser(
+        activeUserId,
+        comment.userId,
+        NotificationType.LIKE,
+        postId,
+        commentId,
+      );
+      if (notification) {
+        await this.notificationService.delete(notification);
+        this.notificationGateway.sendNotifications(activeUserId, notification);
+      }
+
+      this.commentGateway.newLike(deletedLike);
+
+      return {
+        message: 'Unlike successfully',
+        data: deletedLike,
+      };
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
         throw new InternalServerErrorException(error.message);

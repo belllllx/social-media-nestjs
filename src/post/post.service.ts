@@ -137,6 +137,7 @@ export class PostService {
               passwordHash: true,
             },
           },
+          comments: true,
         },
       });
 
@@ -152,9 +153,15 @@ export class PostService {
         notifications.forEach((notification) => {
           this.notificationGateway.sendNotifications(userId, notification);
         });
-        this.postGateway.newPost(post);
+        this.postGateway.newPost({
+          ...post,
+          commentsCount: post.comments.length,
+        });
 
-        return post;
+        return {
+          ...post,
+          commentsCount: post.comments.length,
+        };
       }
 
       if (filesUrl && filesUrl.length) {
@@ -204,11 +211,13 @@ export class PostService {
         this.postGateway.newPost({
           ...post,
           filesUrl: filesFromS3,
+          commentsCount: post.comments.length,
         });
 
         return {
           ...post,
           filesUrl,
+          commentsCount: post.comments.length,
         };
       }
 
@@ -270,6 +279,7 @@ export class PostService {
               },
             },
           },
+          comments: true,
         },
       });
       const notification = await createNotification(
@@ -292,6 +302,7 @@ export class PostService {
       );
       this.postGateway.newPost({
         ...sharePost,
+        commentsCount: sharePost.comments.length,
         parent: {
           ...post,
           filesUrl: filesFromS3,
@@ -300,6 +311,7 @@ export class PostService {
 
       return {
         ...sharePost,
+        commentsCount: sharePost.comments.length,
         parent: {
           ...post,
           filesUrl: filesFromS3,
@@ -366,6 +378,8 @@ export class PostService {
 
       const postsWithFiles = await Promise.all(
         posts.map(async (post) => {
+          const commentsCount = post.comments.filter((comment) => !comment.parentId).length;
+
           const filesFromS3 = await getFiles(
             post.id,
             this.prismaService,
@@ -383,7 +397,7 @@ export class PostService {
 
             return {
               ...post,
-              commentsCount: post.comments.length,
+              commentsCount,
               filesUrl: filesFromS3,
               parent: {
                 ...post.parent,
@@ -394,7 +408,7 @@ export class PostService {
 
           return {
             ...post,
-            commentsCount: post.comments.length,
+            commentsCount,
             filesUrl: filesFromS3,
           };
         }),
@@ -465,6 +479,8 @@ export class PostService {
         throw new NotFoundException(`Post id ${postId} not found`);
       }
 
+      const commentsCount = post.comments.filter((comment) => !comment.parentId).length;
+
       const filesFromS3 = await getFiles(
         post.id,
         this.prismaService,
@@ -482,7 +498,7 @@ export class PostService {
 
         return {
           ...post,
-          commentsCount: post.comments.length,
+          commentsCount,
           filesUrl: filesFromS3,
           parent: {
             ...post.parent,
@@ -493,7 +509,7 @@ export class PostService {
 
       return {
         ...post,
-        commentsCount: post.comments.length,
+        commentsCount,
         filesUrl: filesFromS3,
       };
     } catch (error: unknown) {
@@ -565,6 +581,8 @@ export class PostService {
 
       const postsWithFiles = await Promise.all(
         posts.map(async (post) => {
+          const commentsCount = post.comments.filter((comment) => !comment.parentId).length;
+
           const filesFromS3 = await getFiles(
             post.id,
             this.prismaService,
@@ -582,7 +600,7 @@ export class PostService {
 
             return {
               ...post,
-              commentsCount: post.comments.length,
+              commentsCount,
               filesUrl: filesFromS3,
               parent: {
                 ...post.parent,
@@ -593,7 +611,7 @@ export class PostService {
 
           return {
             ...post,
-            commentsCount: post.comments.length,
+            commentsCount,
             filesUrl: filesFromS3,
           };
         }),
@@ -681,6 +699,8 @@ export class PostService {
         },
       });
 
+      const commentsCount = post.comments.filter((comment) => !comment.parentId).length;
+
       if (!filesUrl || !filesUrl.length || !shouldDeleteCurrentFiles) {
         const fileRecords = await this.prismaService.file.findMany({
           where: {
@@ -718,13 +738,13 @@ export class PostService {
 
           this.postGateway.updatePost({
             ...post,
-            commentsCount: post.comments.length,
+            commentsCount,
             filesUrl,
           });
 
           return {
             ...post,
-            commentsCount: post.comments.length,
+            commentsCount,
             filesUrl,
             parent: {
               ...post.parent,
@@ -735,13 +755,13 @@ export class PostService {
 
         this.postGateway.updatePost({
           ...post,
-          commentsCount: post.comments.length,
+          commentsCount,
           filesUrl,
         });
 
         return {
           ...post,
-          commentsCount: post.comments.length,
+          commentsCount,
           filesUrl,
         };
       }
@@ -823,13 +843,13 @@ export class PostService {
 
           this.postGateway.updatePost({
             ...post,
-            commentsCount: post.comments.length,
+            commentsCount,
             filesUrl: filesUrlS3,
           });
 
           return {
             ...post,
-            commentsCount: post.comments.length,
+            commentsCount,
             filesUrl,
             parent: {
               ...post.parent,
@@ -840,13 +860,13 @@ export class PostService {
 
         this.postGateway.updatePost({
           ...post,
-          commentsCount: post.comments.length,
+          commentsCount,
           filesUrl: filesUrlS3,
         });
 
         return {
           ...post,
-          commentsCount: post.comments.length,
+          commentsCount,
           filesUrl: filesUrlS3,
         };
       }
@@ -1002,7 +1022,7 @@ export class PostService {
 
   async like(activeUserId: string, postId: string) {
     try {
-      const user = await this.userService.findById(activeUserId);
+      await this.userService.findById(activeUserId);
       const post = await this.findPostById(postId);
       if (!post) {
         throw new NotFoundException(`Post id ${postId} not found`);
@@ -1063,6 +1083,7 @@ export class PostService {
         activeUserId,
         post.userId,
         NotificationType.LIKE,
+        postId,
       );
       if (notification) {
         await this.notificationService.delete(notification);
