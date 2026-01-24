@@ -378,7 +378,9 @@ export class PostService {
 
       const postsWithFiles = await Promise.all(
         posts.map(async (post) => {
-          const commentsCount = post.comments.filter((comment) => !comment.parentId).length;
+          const commentsCount = post.comments.filter(
+            (comment) => !comment.parentId,
+          ).length;
 
           const filesFromS3 = await getFiles(
             post.id,
@@ -479,7 +481,9 @@ export class PostService {
         throw new NotFoundException(`Post id ${postId} not found`);
       }
 
-      const commentsCount = post.comments.filter((comment) => !comment.parentId).length;
+      const commentsCount = post.comments.filter(
+        (comment) => !comment.parentId,
+      ).length;
 
       const filesFromS3 = await getFiles(
         post.id,
@@ -581,7 +585,9 @@ export class PostService {
 
       const postsWithFiles = await Promise.all(
         posts.map(async (post) => {
-          const commentsCount = post.comments.filter((comment) => !comment.parentId).length;
+          const commentsCount = post.comments.filter(
+            (comment) => !comment.parentId,
+          ).length;
 
           const filesFromS3 = await getFiles(
             post.id,
@@ -699,7 +705,9 @@ export class PostService {
         },
       });
 
-      const commentsCount = post.comments.filter((comment) => !comment.parentId).length;
+      const commentsCount = post.comments.filter(
+        (comment) => !comment.parentId,
+      ).length;
 
       if (!filesUrl || !filesUrl.length || !shouldDeleteCurrentFiles) {
         const fileRecords = await this.prismaService.file.findMany({
@@ -914,31 +922,29 @@ export class PostService {
 
       for (const user of users) {
         if (post.parent) {
-          const notification = await this.notificationService.findByUser(
+          const notifications = await this.notificationService.findsNoti(
             post.userId,
             user.id,
-            NotificationType.SHARE,
             post.parent.id,
           );
-          if (notification) {
-            await this.notificationService.delete(notification);
-            
+          if (notifications.length) {
+            await this.notificationService.delete(notifications);
+
             this.notificationGateway.sendNotifications(
               post.userId,
-              notification,
+              notifications,
             );
           }
         } else {
-          const notification = await this.notificationService.findByUser(
+          const notifications = await this.notificationService.findsNoti(
             post.userId,
             user.id,
-            NotificationType.POST,
             post.id,
           );
-          if (notification) {
+          if (notifications.length) {
             this.notificationGateway.sendNotifications(
               post.userId,
-              notification,
+              notifications,
             );
           }
         }

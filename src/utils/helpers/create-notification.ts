@@ -1,4 +1,4 @@
-import { NotificationType, Post } from 'generated/prisma';
+import { Comment, NotificationType, Post } from 'generated/prisma';
 import { NotificationService } from 'src/notification/notification.service';
 
 export function createNotification(
@@ -8,15 +8,15 @@ export function createNotification(
   receiverId: string,
   message: string,
   post: Post,
-  commentId?: string
+  comment?: Comment,
 ) {
-  if (activeUserId !== post.userId) {
+  if (activeUserId !== post.userId || activeUserId !== comment?.userId) {
     return notificationService.create({
       type,
       senderId: activeUserId,
       receiverId,
       postId: post.id,
-      commentId,
+      commentId: comment?.id,
       message,
     });
   }

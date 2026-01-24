@@ -148,6 +148,40 @@ export class NotificationService {
     }
   }
 
+  async findsNoti(
+    senderId: string,
+    receiverId: string,
+    postId?: string,
+    commentId?: string,
+  ) {
+    try {
+      return this.prismaService.notification.findMany({
+        where: {
+          senderId,
+          receiverId,
+          postId,
+          commentId,
+        },
+        include: {
+          sender: {
+            omit: {
+              passwordHash: true,
+            },
+          },
+        },
+      });
+    } catch (error: unknown) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        throw new InternalServerErrorException(
+          error,
+          'Error something went wrong',
+        );
+      }
+
+      throw new InternalServerErrorException(error, 'Unexpected error');
+    }
+  }
+
   async findByUser(
     senderId: string,
     receiverId: string,
@@ -206,18 +240,33 @@ export class NotificationService {
     }
   }
 
-  delete(notification: Notification) {
+  delete(notification: Notification | Notification[]) {
     try {
-      const { id, senderId, receiverId, type } = notification;
+      if (!Array.isArray(notification)) {
+        const { id, senderId, receiverId, type } = notification;
 
-      return this.prismaService.notification.delete({
-        where: {
-          id,
-          senderId,
-          receiverId,
-          type,
-        },
-      });
+        return this.prismaService.notification.delete({
+          where: {
+            id,
+            senderId,
+            receiverId,
+            type,
+          },
+        });
+      }
+
+      return Promise.all(
+        notification.map((noti) =>
+          this.prismaService.notification.delete({
+            where: {
+              id: noti.id,
+              senderId: noti.senderId,
+              receiverId: noti.receiverId,
+              type: noti.type,
+            },
+          }),
+        ),
+      );
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
         throw new InternalServerErrorException(

@@ -191,7 +191,7 @@ export class CommentService {
           post.userId,
           'Comment on your post',
           post,
-          comment.id,
+          comment,
         );
         if (notification) {
           this.notificationGateway.sendNotifications(userId, notification);
@@ -245,7 +245,7 @@ export class CommentService {
           post.userId,
           'Comment on your post',
           post,
-          comment.id,
+          comment,
         );
         if (notification) {
           this.notificationGateway.sendNotifications(userId, notification);
@@ -371,7 +371,7 @@ export class CommentService {
           commentParent.userId,
           'Reply your comment',
           post,
-          comment.id,
+          commentParent,
         );
         if (notification) {
           this.notificationGateway.sendNotifications(userId, notification);
@@ -424,7 +424,7 @@ export class CommentService {
         commentParent.userId,
         'Reply your comment',
         post,
-        comment.id,
+        commentParent,
       );
       if (notification) {
         this.notificationGateway.sendNotifications(userId, notification);
@@ -835,17 +835,16 @@ export class CommentService {
             );
           }
         } else {
-          const notification = await this.notificationService.findByUser(
+          const notifications = await this.notificationService.findsNoti(
             comment.userId,
             user.id,
-            NotificationType.COMMENT,
             post.id,
             comment.id,
           );
-          if (notification) {
+          if (notifications.length) {
             this.notificationGateway.sendNotifications(
               comment.userId,
-              notification,
+              notifications,
             );
           }
         }
