@@ -34,6 +34,7 @@ interface ServerToClientEvents {
     },
   ) => void;
   deleteComment: (comment: Comment) => void;
+  deleteReplyComment: (comment: Comment) => void;
   newLikeComment: (like: Like) => void;
 }
 
@@ -91,6 +92,10 @@ export class CommentGateway
 
   deleteComment(comment: Comment) {
     this.server.emit('deleteComment', comment);
+  }
+
+  deleteReplyComment(comment: Comment) {
+    this.server.emit('deleteReplyComment', comment);
   }
 
   newLike(like: Like) {

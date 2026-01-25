@@ -876,7 +876,11 @@ export class CommentService {
         },
       });
 
-      this.commentGateway.deleteComment(deletedComment);
+      if (deletedComment.parentId) {
+        this.commentGateway.deleteReplyComment(deletedComment);
+      } else {
+        this.commentGateway.deleteComment(deletedComment);
+      }
 
       return deletedComment;
     } catch (error: unknown) {
