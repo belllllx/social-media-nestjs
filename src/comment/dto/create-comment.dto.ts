@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  IsUUID,
 } from 'class-validator';
 
 export class CreateCommentDto {
@@ -18,4 +19,10 @@ export class CreateCommentDto {
   @IsUrl()
   @IsNotEmpty()
   fileUrl?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsUUID()
+  @IsNotEmpty()
+  replyToUserId?: string;
 }

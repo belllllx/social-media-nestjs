@@ -23,6 +23,7 @@ import {
   ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
+  ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
 import { CommonResponse } from 'src/utils/swagger/common-response';

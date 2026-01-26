@@ -286,7 +286,8 @@ export class CommentService {
       postId: string;
     },
   ) {
-    const { message, fileUrl, userId, parentId, postId } = createCommentDto;
+    const { message, fileUrl, userId, parentId, postId, replyToUserId } =
+      createCommentDto;
     if (!message && !fileUrl) {
       throw new BadRequestException('Comment must contain a message or file');
     }
@@ -325,6 +326,7 @@ export class CommentService {
           postId,
           userId,
           parentId,
+          replyToUserId,
         },
         include: {
           likes: true,
@@ -358,6 +360,11 @@ export class CommentService {
                   passwordHash: true,
                 },
               },
+            },
+          },
+          replyToUser: {
+            omit: {
+              passwordHash: true,
             },
           },
         },
@@ -510,6 +517,11 @@ export class CommentService {
                   passwordHash: true,
                 },
               },
+              replyToUser: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
             },
           },
         },
@@ -532,22 +544,26 @@ export class CommentService {
             this.s3,
           );
 
-          if (comment.parent) {
-            const commentParentFilesFromS3 = await getFiles(
-              comment.parent.id,
-              this.prismaService,
-              this.configService,
-              this.s3,
-            );
-
+          if (comment.replies.length) {
             return {
               ...comment,
               replysCount: comment.replies.length,
               fileUrl: filesFromS3[0],
-              parent: {
-                ...comment.parent,
-                fileUrl: commentParentFilesFromS3[0],
-              },
+              replies: await Promise.all(
+                comment.replies.map(async (reply) => {
+                  const replyFilesFromS3 = await getFiles(
+                    reply.id,
+                    this.prismaService,
+                    this.configService,
+                    this.s3,
+                  );
+
+                  return {
+                    ...reply,
+                    fileUrl: replyFilesFromS3[0],
+                  };
+                }),
+              ),
             };
           }
 
@@ -648,6 +664,16 @@ export class CommentService {
                   passwordHash: true,
                 },
               },
+              replyToUser: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
+          replyToUser: {
+            omit: {
+              passwordHash: true,
             },
           },
         },
