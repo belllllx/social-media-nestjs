@@ -18,6 +18,7 @@ import { UserService } from 'src/user/user.service';
 import * as nodemailer from 'nodemailer';
 import * as bcrypt from 'bcrypt';
 import SMTPTransport from 'nodemailer/lib/smtp-transport';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class EmailService {
@@ -25,6 +26,7 @@ export class EmailService {
     SMTPTransport.SentMessageInfo,
     SMTPTransport.Options
   >;
+  private readonly logger = new Logger(EmailService.name);
 
   constructor(
     configService: ConfigService,
@@ -104,14 +106,17 @@ export class EmailService {
         error instanceof PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
+        this.logger.error(error.message, error.stack);
         throw new BadRequestException('Otp already exist in your email');
       } else if (
         error instanceof BadRequestException ||
         error instanceof NotFoundException
       ) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException('Failed to send email');
     }
   }
@@ -126,9 +131,11 @@ export class EmailService {
         error instanceof PrismaClientKnownRequestError &&
         error.code === 'P2025'
       ) {
+        this.logger.error(error.message, error.stack);
         throw new NotFoundException(`OTP for email ${email} not found`);
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException('Failed to delete OTP');
     }
   }
@@ -172,9 +179,11 @@ export class EmailService {
         error instanceof NotFoundException ||
         error instanceof BadRequestException
       ) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException('Failed to verify otp');
     }
   }

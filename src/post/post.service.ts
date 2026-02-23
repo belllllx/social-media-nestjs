@@ -37,11 +37,13 @@ import { deleteFileFromS3 } from 'src/utils/helpers/delete-file-from-s3';
 import { getFiles } from 'src/utils/helpers/get-files';
 import { getFileInfo } from 'src/utils/helpers/get-file-info';
 import { CreateSharePostDto } from './dto/create-share-post.dto';
+import { Logger } from '@nestjs/common';
 import { Express } from 'express';
 
 @Injectable()
 export class PostService {
   private s3: S3Client;
+  private readonly logger = new Logger(PostService.name);
 
   constructor(
     configServiceParam: ConfigService,
@@ -107,9 +109,11 @@ export class PostService {
       };
     } catch (error: unknown) {
       if (error instanceof BadRequestException) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -224,11 +228,14 @@ export class PostService {
       throw new BadRequestException('Cannot create post');
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       } else if (error instanceof BadRequestException) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -319,11 +326,14 @@ export class PostService {
       };
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       } else if (error instanceof NotFoundException) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -429,9 +439,11 @@ export class PostService {
       };
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -518,11 +530,14 @@ export class PostService {
       };
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       } else if (error instanceof NotFoundException) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -636,11 +651,14 @@ export class PostService {
       };
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       } else if (error instanceof NotFoundException) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -882,15 +900,18 @@ export class PostService {
       throw new UnprocessableEntityException('Error cannot update post');
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       } else if (
         error instanceof BadRequestException ||
         error instanceof NotFoundException ||
         error instanceof UnprocessableEntityException
       ) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -982,11 +1003,14 @@ export class PostService {
       return deletedPost;
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       } else if (error instanceof NotFoundException) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -1017,11 +1041,14 @@ export class PostService {
       ]);
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       } else if (error instanceof NotFoundException) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -1104,11 +1131,14 @@ export class PostService {
       };
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       } else if (error instanceof NotFoundException) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }

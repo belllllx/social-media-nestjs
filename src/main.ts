@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { HttpStatus, ValidationPipe } from '@nestjs/common';
+import { ConsoleLogger, HttpStatus, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { CommonResponse } from './utils/swagger/common-response';
 import { HttpExceptionFilter } from './utils/exception-filters/http-exception.filter';
@@ -9,7 +9,12 @@ import { LoggingInterceptor } from './utils/interceptors/logging.interceptor';
 import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: new ConsoleLogger({
+      logLevels: ['log', 'warn', 'error'],
+      json: true,
+    }),
+  });
 
   const config = new DocumentBuilder()
     .setTitle('Social Media API')

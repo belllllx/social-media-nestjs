@@ -29,11 +29,13 @@ import { UpdateCommentDto } from './dto/update-comment.dto';
 import { getFileInfo } from 'src/utils/helpers/get-file-info';
 import { findFiles } from 'src/utils/helpers/find-files';
 import { deleteObjectS3 } from 'src/utils/helpers/delete-object-s3';
+import { Logger } from '@nestjs/common';
 import { Express } from 'express';
 
 @Injectable()
 export class CommentService {
   private s3: S3Client;
+  private readonly logger = new Logger(CommentService.name);
 
   constructor(
     configServiceParam: ConfigService,
@@ -85,9 +87,11 @@ export class CommentService {
       };
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -118,11 +122,14 @@ export class CommentService {
       ]);
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       } else if (error instanceof NotFoundException) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -267,14 +274,17 @@ export class CommentService {
       throw new BadRequestException('Cannot create comment');
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       } else if (
         error instanceof BadRequestException ||
         error instanceof NotFoundException
       ) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -450,11 +460,14 @@ export class CommentService {
       };
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       } else if (error instanceof NotFoundException) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -588,11 +601,14 @@ export class CommentService {
       };
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       } else if (error instanceof NotFoundException) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -796,15 +812,18 @@ export class CommentService {
       throw new UnprocessableEntityException('Error cannot update post');
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       } else if (
         error instanceof BadRequestException ||
         error instanceof NotFoundException ||
         error instanceof UnprocessableEntityException
       ) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -911,11 +930,14 @@ export class CommentService {
       return deletedComment;
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       } else if (error instanceof NotFoundException) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -1013,11 +1035,14 @@ export class CommentService {
       };
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       } else if (error instanceof NotFoundException) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }

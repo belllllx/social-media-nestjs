@@ -7,9 +7,12 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { PrismaClientKnownRequestError } from 'generated/prisma/runtime/library';
 import { Notification, NotificationType, User } from 'generated/prisma';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class NotificationService {
+  private readonly logger = new Logger(NotificationService.name);
+
   constructor(private prismaService: PrismaService) {}
 
   create(createNotificationDto: CreateNotificationDto) {
@@ -26,9 +29,11 @@ export class NotificationService {
       });
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -55,9 +60,11 @@ export class NotificationService {
       return notificationsWithSender;
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -137,13 +144,16 @@ export class NotificationService {
       });
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(
           'Error cannot update notification something went wrong',
         );
       } else if (error instanceof NotFoundException) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -172,12 +182,14 @@ export class NotificationService {
       });
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(
           error,
           'Error something went wrong',
         );
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -230,12 +242,14 @@ export class NotificationService {
       return notification;
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(
           error,
           'Error something went wrong',
         );
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -269,12 +283,14 @@ export class NotificationService {
       );
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(
           error,
           'Error something went wrong',
         );
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }

@@ -14,9 +14,12 @@ import { CreateSocialUserDto } from 'src/utils/types';
 import { formatString } from 'src/utils/helpers/format-string';
 import { NotificationService } from 'src/notification/notification.service';
 import { NotificationGateway } from 'src/notification/notification.gateway';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
@@ -74,11 +77,13 @@ export class UserService {
         error instanceof PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
+        this.logger.error(error.message, error.stack);
         throw new BadRequestException(
           `${formatString(error.meta?.target?.[0])} already exists`,
         );
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException('Failed to create user');
     }
   }
@@ -100,9 +105,11 @@ export class UserService {
       return user;
     } catch (error: unknown) {
       if (error instanceof NotFoundException) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException('Error cannot find user');
     }
   }
@@ -128,11 +135,14 @@ export class UserService {
         error instanceof PrismaClientKnownRequestError &&
         error.code === 'P2025'
       ) {
+        this.logger.error(error.message, error.stack);
         throw new NotFoundException('User not found');
       } else if (error instanceof BadRequestException) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException('Failed to reset password');
     }
   }
@@ -239,14 +249,17 @@ export class UserService {
       };
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(
           error,
           'Error something went wrong',
         );
       } else if (error instanceof NotFoundException) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }
@@ -320,14 +333,17 @@ export class UserService {
       };
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(
           error,
           'Error something went wrong',
         );
       } else if (error instanceof NotFoundException) {
+        this.logger.warn(error.message, error.stack);
         throw error;
       }
 
+      this.logger.error(error);
       throw new InternalServerErrorException(error, 'Unexpected error');
     }
   }

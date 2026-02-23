@@ -11,7 +11,15 @@ export function setCookies(
         httpOnly: true,
         secure: true,
         sameSite: 'none',
-        maxAge: 1000 * 60 * 60 * 24 * 3,
+        maxAge: k.includes("access_token")
+          ?
+          1000 * 60 * 10
+          :
+          k.includes("forgot_password_token")
+            ?
+            1000 * 60 * 5
+            :
+            1000 * 60 * 60 * 24 * 3,
       });
     });
   } else if (typeof key === 'string' && typeof value === 'string') {
@@ -19,7 +27,15 @@ export function setCookies(
       httpOnly: true,
       secure: true,
       sameSite: 'none',
-      maxAge: 1000 * 60 * 60 * 24 * 3,
+      maxAge: key.includes("access_token")
+        ?
+        1000 * 60 * 10
+        :
+        key.includes("forgot_password_token")
+          ?
+          1000 * 60 * 5
+          :
+          1000 * 60 * 60 * 24 * 3,
     });
   }
 }
