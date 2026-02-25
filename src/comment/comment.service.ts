@@ -579,7 +579,7 @@ export class CommentService {
       let notification: (Notification & { sender: Omit<User, "passwordHash"> }) | undefined;
 
       if (!fileUrl) {
-        await createTagUserNotification(
+        notification = await createTagUserNotification(
           this.notificationService,
           NotificationType.REPLY,
           userId,
@@ -632,7 +632,7 @@ export class CommentService {
         this.s3,
       );
 
-      await createTagUserNotification(
+      notification = await createTagUserNotification(
         this.notificationService,
         NotificationType.REPLY,
         userId,
