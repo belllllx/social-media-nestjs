@@ -12,7 +12,6 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: new ConsoleLogger({
       logLevels: ['log', 'warn', 'error'],
-      json: true,
     }),
   });
 
@@ -52,7 +51,7 @@ async function bootstrap() {
     exclude: ['auth/google/callback', 'auth/github/callback'],
   });
   app.enableCors({
-    origin: 'http://localhost:3000',
+    origin: process.env.CLIENT_URL,
     credentials: true,
   });
   app.use(cookieParser());

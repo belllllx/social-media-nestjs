@@ -27,15 +27,12 @@ export function handleWsConnection(
       client.data.token = {
         access_token,
       }
-      return;
     } catch (error: unknown) {
       if (error instanceof TokenExpiredError) {
         client.disconnect(true);
-        return;
       }
 
       client.disconnect(true);
-      return;
     }
   }
 
