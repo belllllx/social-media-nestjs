@@ -34,6 +34,7 @@ export function handleWsConnection(
 
       client.disconnect(true);
     }
+    return;
   }
 
   client.disconnect(true);
