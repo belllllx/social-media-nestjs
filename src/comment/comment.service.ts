@@ -17,7 +17,7 @@ import { getFileDirFromFileMulter } from 'src/utils/helpers/get-file-dir-from-fi
 import { putObjectS3 } from 'src/utils/helpers/put-object-s3';
 import { getObjectS3 } from 'src/utils/helpers/get-object-s3';
 import { FileDir } from 'src/utils/types';
-import { ContentType, NotificationType } from 'generated/prisma';
+import { ContentType, NotificationType, Notification, User } from 'generated/prisma';
 import { getFileNameFromPresignedUrl } from 'src/utils/helpers/get-filename-from-presigned-url';
 import { getFileDirFromPresignedUrl } from 'src/utils/helpers/get-file-dir-from-presigned-url';
 import { deleteFileFromS3 } from 'src/utils/helpers/delete-file-from-s3';
@@ -31,6 +31,7 @@ import { findFiles } from 'src/utils/helpers/find-files';
 import { deleteObjectS3 } from 'src/utils/helpers/delete-object-s3';
 import { Logger } from '@nestjs/common';
 import { Express } from 'express';
+import { createTagUserNotification } from 'src/utils/helpers/create-tag-user-notification';
 
 @Injectable()
 export class CommentService {
@@ -380,8 +381,10 @@ export class CommentService {
         },
       });
 
+      let notification: (Notification & { sender: Omit<User, "passwordHash"> }) | undefined;
+
       if (!fileUrl) {
-        const notification = await createNotification(
+        notification = await createNotification(
           this.notificationService,
           NotificationType.REPLY,
           userId,
@@ -434,7 +437,7 @@ export class CommentService {
         this.s3,
       );
 
-      const notification = await createNotification(
+      notification = await createNotification(
         this.notificationService,
         NotificationType.REPLY,
         userId,
@@ -472,6 +475,201 @@ export class CommentService {
     }
   }
 
+  async createTagUserComment(
+    createCommentDto: CreateCommentDto & {
+      userId: string;
+      parentId: string;
+      postId: string;
+      replyId: string;
+    },
+  ) {
+    const { message, fileUrl, userId, parentId, postId, replyToUserId, replyId } =
+      createCommentDto;
+    if (!message && !fileUrl) {
+      throw new BadRequestException('Comment must contain a message or file');
+    }
+
+    try {
+      await this.userService.findById(userId);
+
+      const post = await this.prismaService.post.findUnique({
+        where: {
+          id: postId,
+        },
+        include: {
+          user: {
+            omit: {
+              passwordHash: true,
+            },
+          },
+        },
+      });
+      if (!post) {
+        throw new NotFoundException(`Post id ${postId} not found`);
+      }
+
+      const commentParent = await this.prismaService.comment.findUnique({
+        where: {
+          id: parentId,
+        },
+      });
+      if (!commentParent) {
+        throw new NotFoundException(`Comment id ${parentId} not found`);
+      }
+
+      const replyComment = await this.prismaService.comment.findUnique({
+        where: {
+          id: replyId,
+        },
+      });
+      if (!replyComment) {
+        throw new NotFoundException(`Reply Comment id ${replyId} not found`);
+      }
+
+      const tagComment = await this.prismaService.comment.create({
+        data: {
+          message,
+          postId,
+          userId,
+          parentId,
+          replyToUserId,
+        },
+        include: {
+          likes: true,
+          user: {
+            omit: {
+              passwordHash: true,
+            },
+          },
+          parent: {
+            include: {
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
+          replies: {
+            include: {
+              likes: {
+                include: {
+                  user: {
+                    omit: {
+                      passwordHash: true,
+                    },
+                  },
+                },
+              },
+              user: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
+          replyToUser: {
+            omit: {
+              passwordHash: true,
+            },
+          },
+        },
+      });
+
+      let notification: (Notification & { sender: Omit<User, "passwordHash"> }) | undefined;
+
+      if (!fileUrl) {
+        await createTagUserNotification(
+          this.notificationService,
+          NotificationType.REPLY,
+          userId,
+          replyComment.userId,
+          'Tag you in comment',
+          post,
+          replyComment,
+        );
+        if (notification) {
+          this.notificationGateway.sendNotifications(userId, notification);
+        }
+        this.commentGateway.newComment({
+          ...tagComment,
+          replysCount: tagComment.replies.length,
+        });
+
+        return {
+          ...tagComment,
+          replysCount: tagComment.replies.length,
+        };
+      }
+
+      const fileDir = getFileDirFromPresignedUrl(fileUrl);
+      const fileName = getFileNameFromPresignedUrl(fileUrl);
+
+      const file = await this.prismaService.file.findFirst({
+        where: {
+          fileName: `${fileDir}/${fileName}`,
+          contentType: ContentType.COMMENT,
+        },
+      });
+
+      if (file) {
+        await this.prismaService.file.update({
+          data: {
+            contentId: tagComment.id,
+          },
+          where: {
+            id: file.id,
+            fileName: `${fileDir}/${fileName}`,
+            contentType: ContentType.COMMENT,
+          },
+        });
+      }
+
+      const fileFromS3 = await getFiles(
+        tagComment.id,
+        this.prismaService,
+        this.configService,
+        this.s3,
+      );
+
+      await createTagUserNotification(
+        this.notificationService,
+        NotificationType.REPLY,
+        userId,
+        replyComment.userId,
+        'Tag you in comment',
+        post,
+        replyComment,
+      );
+      if (notification) {
+        this.notificationGateway.sendNotifications(userId, notification);
+      }
+
+      this.commentGateway.newComment({
+        ...tagComment,
+        replysCount: tagComment.replies.length,
+        fileUrl: fileFromS3[0],
+      });
+
+      return {
+        ...tagComment,
+        replysCount: tagComment.replies.length,
+        fileUrl: fileFromS3[0],
+      };
+    } catch (error: unknown) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
+        throw new InternalServerErrorException(error.message);
+      } else if (error instanceof NotFoundException) {
+        this.logger.warn(error.message, error.stack);
+        throw error;
+      }
+
+      this.logger.error(error);
+      throw new InternalServerErrorException(error, 'Unexpected error');
+    }
+  }
+
   async findComments(postId: string, cursor?: string, limit: number = 5) {
     try {
       const commentOfPost = await this.prismaService.post.findUnique({
@@ -487,8 +685,8 @@ export class CommentService {
         take: -(limit + 1),
         cursor: cursor
           ? {
-              id: cursor,
-            }
+            id: cursor,
+          }
           : undefined,
         include: {
           likes: {

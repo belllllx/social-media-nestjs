@@ -38,7 +38,7 @@ import { Express } from 'express';
 @UseGuards(AtAuthGuard)
 @Controller('comment')
 export class CommentController {
-  constructor(private commentService: CommentService) {}
+  constructor(private commentService: CommentService) { }
 
   @Post('file/create')
   @UseInterceptors(FileInterceptor('file'))
@@ -88,6 +88,32 @@ export class CommentController {
     return {
       message: 'Comment created successfully',
       data: comment,
+    };
+  }
+
+  @Post('tag/create/:userId/:parentId/:replyId/:postId')
+  @ApiCreatedResponse({
+    description: 'Tag user comment created successfully',
+    type: CommonResponse,
+  })
+  async createTagUserComment(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Param('parentId', ParseUUIDPipe) parentId: string,
+    @Param('replyId', ParseUUIDPipe) replyId: string,
+    @Param('postId', ParseUUIDPipe) postId: string,
+    @Body() createReplyComment: CreateCommentDto,
+  ): Promise<ResponseFromService> {
+    const tagUserComment = await this.commentService.createTagUserComment({
+      ...createReplyComment,
+      userId,
+      parentId,
+      postId,
+      replyId,
+    });
+
+    return {
+      message: 'Tag user comment created successfully',
+      data: tagUserComment,
     };
   }
 
