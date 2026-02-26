@@ -157,10 +157,13 @@ export class PostService {
         notifications.forEach((notification) => {
           this.notificationGateway.sendNotifications(userId, notification);
         });
-        this.postGateway.newPost({
-          ...post,
-          commentsCount: post.comments.length,
-        });
+        this.postGateway.newPost(
+          post.userId,
+          {
+            ...post,
+            commentsCount: post.comments.length,
+          }
+        );
 
         return {
           ...post,
@@ -212,11 +215,14 @@ export class PostService {
         notifications.forEach((notification) => {
           this.notificationGateway.sendNotifications(userId, notification);
         });
-        this.postGateway.newPost({
-          ...post,
-          filesUrl: filesFromS3,
-          commentsCount: post.comments.length,
-        });
+        this.postGateway.newPost(
+          post.userId,
+          {
+            ...post,
+            filesUrl: filesFromS3,
+            commentsCount: post.comments.length,
+          }
+        );
 
         return {
           ...post,
@@ -307,14 +313,17 @@ export class PostService {
         this.configService,
         this.s3,
       );
-      this.postGateway.newPost({
-        ...sharePost,
-        commentsCount: sharePost.comments.length,
-        parent: {
-          ...post,
-          filesUrl: filesFromS3,
-        },
-      });
+      this.postGateway.newPost(
+        sharePost.userId,
+        {
+          ...sharePost,
+          commentsCount: sharePost.comments.length,
+          parent: {
+            ...post,
+            filesUrl: filesFromS3,
+          },
+        }
+      );
 
       return {
         ...sharePost,
@@ -344,8 +353,8 @@ export class PostService {
         take: -(limit + 1),
         cursor: cursor
           ? {
-              id: cursor,
-            }
+            id: cursor,
+          }
           : undefined,
         include: {
           likes: {
@@ -553,8 +562,8 @@ export class PostService {
         take: -(limit + 1),
         cursor: cursor
           ? {
-              id: cursor,
-            }
+            id: cursor,
+          }
           : undefined,
         include: {
           likes: {
@@ -762,11 +771,14 @@ export class PostService {
             this.s3,
           );
 
-          this.postGateway.updatePost({
-            ...post,
-            commentsCount,
-            filesUrl,
-          });
+          this.postGateway.updatePost(
+            post.userId,
+            {
+              ...post,
+              commentsCount,
+              filesUrl,
+            }
+          );
 
           return {
             ...post,
@@ -779,11 +791,14 @@ export class PostService {
           };
         }
 
-        this.postGateway.updatePost({
-          ...post,
-          commentsCount,
-          filesUrl,
-        });
+        this.postGateway.updatePost(
+          post.userId,
+          {
+            ...post,
+            commentsCount,
+            filesUrl,
+          }
+        );
 
         return {
           ...post,
@@ -867,11 +882,14 @@ export class PostService {
             this.s3,
           );
 
-          this.postGateway.updatePost({
-            ...post,
-            commentsCount,
-            filesUrl: filesUrlS3,
-          });
+          this.postGateway.updatePost(
+            post.userId,
+            {
+              ...post,
+              commentsCount,
+              filesUrl: filesUrlS3,
+            }
+          );
 
           return {
             ...post,
@@ -884,11 +902,14 @@ export class PostService {
           };
         }
 
-        this.postGateway.updatePost({
-          ...post,
-          commentsCount,
-          filesUrl: filesUrlS3,
-        });
+        this.postGateway.updatePost(
+          post.userId,
+          {
+            ...post,
+            commentsCount,
+            filesUrl: filesUrlS3,
+          }
+        );
 
         return {
           ...post,
@@ -998,7 +1019,7 @@ export class PostService {
         },
       });
 
-      this.postGateway.deletePost(post);
+      this.postGateway.deletePost(post.userId, post);
 
       return deletedPost;
     } catch (error: unknown) {
@@ -1089,7 +1110,7 @@ export class PostService {
           message: 'Like your post',
         });
         this.notificationGateway.sendNotifications(activeUserId, notification);
-        this.postGateway.newLike(createdLike);
+        this.postGateway.newLike(activeUserId, createdLike);
 
         return {
           message: 'Like successfully',
@@ -1123,7 +1144,7 @@ export class PostService {
         this.notificationGateway.sendNotifications(activeUserId, notification);
       }
 
-      this.postGateway.newLike(deletedLike);
+      this.postGateway.newLike(activeUserId, deletedLike);
 
       return {
         message: 'Unlike successfully',

@@ -2,9 +2,8 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
   WebSocketGateway,
-  WebSocketServer,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { Socket } from 'socket.io';
 import { Like, Post, User } from 'generated/prisma';
 import { handleWsConnection } from 'src/utils/helpers/handle-ws-connection';
 import { JwtService } from '@nestjs/jwt';
@@ -15,8 +14,8 @@ interface ServerToClientEvents {
     post: Post & {
       user: Omit<User, 'passwordHash'>;
       filesUrl?: string[];
-      parent?: Post & { 
-        user: Omit<User, 'passwordHash'>; 
+      parent?: Post & {
+        user: Omit<User, 'passwordHash'>;
         filesUrl?: string[];
       } | null;
       commentsCount: number,
@@ -42,10 +41,7 @@ interface ServerToClientEvents {
   },
 })
 export class PostGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  constructor(private jwtService: JwtService) {}
-
-  @WebSocketServer()
-  private server: Server<any, ServerToClientEvents>;
+  constructor(private jwtService: JwtService) { }
 
   private clients = new Map<string, Socket<any, ServerToClientEvents>>();
 
@@ -58,20 +54,25 @@ export class PostGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   newPost(
+    userId: string,
     post: Post & {
       user: Omit<User, 'passwordHash'>;
       filesUrl?: string[];
-      parent?: Post & { 
-        user: Omit<User, 'passwordHash'>; 
+      parent?: Post & {
+        user: Omit<User, 'passwordHash'>;
         filesUrl?: string[];
       } | null;
       commentsCount: number,
     },
   ) {
-    this.server.emit('createPost', post);
+    const client = this.clients.get(userId);
+    if (client) {
+      client.broadcast.emit('createPost', post);
+    }
   }
 
   updatePost(
+    userId: string,
     post: Post & {
       likes: (Like & { user: Omit<User, 'passwordHash'> })[];
       user: Omit<User, 'passwordHash'>;
@@ -80,14 +81,23 @@ export class PostGateway implements OnGatewayConnection, OnGatewayDisconnect {
       commentsCount: number,
     },
   ) {
-    this.server.emit('updatePost', post);
+    const client = this.clients.get(userId);
+    if (client) {
+      client.broadcast.emit('updatePost', post);
+    }
   }
 
-  deletePost(post: Post){
-    this.server.emit('deletePost', post);
+  deletePost(userId: string, post: Post) {
+    const client = this.clients.get(userId);
+    if (client) {
+      client.broadcast.emit('deletePost', post);
+    }
   }
 
-  newLike(like: Like) {
-    this.server.emit('newLike', like);
+  newLike(userId: string, like: Like) {
+    const client = this.clients.get(userId);
+    if (client) {
+      client.broadcast.emit('newLike', like);
+    }
   }
 }
