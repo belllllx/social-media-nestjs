@@ -30,8 +30,8 @@ import { getFileInfo } from 'src/utils/helpers/get-file-info';
 import { findFiles } from 'src/utils/helpers/find-files';
 import { deleteObjectS3 } from 'src/utils/helpers/delete-object-s3';
 import { Logger } from '@nestjs/common';
-import { Express } from 'express';
 import { createTagUserNotification } from 'src/utils/helpers/create-tag-user-notification';
+import { Express } from 'express';
 
 @Injectable()
 export class CommentService {
@@ -690,6 +690,9 @@ export class CommentService {
           : undefined,
         include: {
           likes: {
+            orderBy: {
+              createdAt: 'desc',
+            },
             include: {
               user: {
                 omit: {
@@ -713,8 +716,14 @@ export class CommentService {
             },
           },
           replies: {
+            orderBy: {
+              createdAt: 'desc',
+            },
             include: {
               likes: {
+                orderBy: {
+                  createdAt: 'desc',
+                },
                 include: {
                   user: {
                     omit: {
@@ -840,6 +849,9 @@ export class CommentService {
         },
         include: {
           likes: {
+            orderBy: {
+              createdAt: 'desc',
+            },
             include: {
               user: {
                 omit: {
@@ -863,8 +875,14 @@ export class CommentService {
             },
           },
           replies: {
+            orderBy: {
+              createdAt: 'desc',
+            },
             include: {
               likes: {
+                orderBy: {
+                  createdAt: 'desc',
+                },
                 include: {
                   user: {
                     omit: {

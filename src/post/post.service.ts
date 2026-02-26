@@ -358,6 +358,9 @@ export class PostService {
           : undefined,
         include: {
           likes: {
+            orderBy: {
+              createdAt: 'desc',
+            },
             include: {
               user: {
                 omit: {
@@ -381,6 +384,9 @@ export class PostService {
             },
           },
           comments: {
+            orderBy: {
+              createdAt: 'desc',
+            },
             include: {
               user: {
                 omit: {
@@ -465,6 +471,9 @@ export class PostService {
         },
         include: {
           likes: {
+            orderBy: {
+              createdAt: 'desc',
+            },
             include: {
               user: {
                 omit: {
@@ -488,6 +497,9 @@ export class PostService {
             },
           },
           comments: {
+            orderBy: {
+              createdAt: 'desc',
+            },
             include: {
               user: {
                 omit: {
@@ -567,6 +579,9 @@ export class PostService {
           : undefined,
         include: {
           likes: {
+            orderBy: {
+              createdAt: 'desc',
+            },
             include: {
               user: {
                 omit: {
@@ -590,6 +605,9 @@ export class PostService {
             },
           },
           comments: {
+            orderBy: {
+              createdAt: 'desc',
+            },
             include: {
               user: {
                 omit: {
@@ -698,6 +716,9 @@ export class PostService {
         },
         include: {
           likes: {
+            orderBy: {
+              createdAt: 'desc',
+            },
             include: {
               user: {
                 omit: {
@@ -721,6 +742,9 @@ export class PostService {
             },
           },
           comments: {
+            orderBy: {
+              createdAt: 'desc',
+            },
             include: {
               user: {
                 omit: {
