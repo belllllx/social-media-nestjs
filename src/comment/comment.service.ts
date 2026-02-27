@@ -204,10 +204,13 @@ export class CommentService {
         if (notification) {
           this.notificationGateway.sendNotifications(userId, notification);
         }
-        this.commentGateway.newComment({
-          ...comment,
-          replysCount: comment.replies.length,
-        });
+        this.commentGateway.newComment(
+          comment.userId,
+          {
+            ...comment,
+            replysCount: comment.replies.length,
+          }
+        );
 
         return {
           ...comment,
@@ -259,11 +262,13 @@ export class CommentService {
           this.notificationGateway.sendNotifications(userId, notification);
         }
 
-        this.commentGateway.newComment({
-          ...comment,
-          replysCount: comment.replies.length,
-          fileUrl: fileFromS3[0],
-        });
+        this.commentGateway.newComment(
+          comment.userId,
+          {
+            ...comment,
+            replysCount: comment.replies.length,
+            fileUrl: fileFromS3[0],
+          });
 
         return {
           ...comment,
@@ -396,10 +401,13 @@ export class CommentService {
         if (notification) {
           this.notificationGateway.sendNotifications(userId, notification);
         }
-        this.commentGateway.newComment({
-          ...comment,
-          replysCount: comment.replies.length,
-        });
+        this.commentGateway.newComment(
+          comment.userId,
+          {
+            ...comment,
+            replysCount: comment.replies.length,
+          }
+        );
 
         return {
           ...comment,
@@ -450,11 +458,14 @@ export class CommentService {
         this.notificationGateway.sendNotifications(userId, notification);
       }
 
-      this.commentGateway.newComment({
-        ...comment,
-        replysCount: comment.replies.length,
-        fileUrl: fileFromS3[0],
-      });
+      this.commentGateway.newComment(
+        comment.userId,
+        {
+          ...comment,
+          replysCount: comment.replies.length,
+          fileUrl: fileFromS3[0],
+        }
+      );
 
       return {
         ...comment,
@@ -591,10 +602,13 @@ export class CommentService {
         if (notification) {
           this.notificationGateway.sendNotifications(userId, notification);
         }
-        this.commentGateway.newComment({
-          ...tagComment,
-          replysCount: tagComment.replies.length,
-        });
+        this.commentGateway.newComment(
+          tagComment.userId,
+          {
+            ...tagComment,
+            replysCount: tagComment.replies.length,
+          }
+        );
 
         return {
           ...tagComment,
@@ -645,11 +659,14 @@ export class CommentService {
         this.notificationGateway.sendNotifications(userId, notification);
       }
 
-      this.commentGateway.newComment({
-        ...tagComment,
-        replysCount: tagComment.replies.length,
-        fileUrl: fileFromS3[0],
-      });
+      this.commentGateway.newComment(
+        tagComment.userId,
+        {
+          ...tagComment,
+          replysCount: tagComment.replies.length,
+          fileUrl: fileFromS3[0],
+        }
+      );
 
       return {
         ...tagComment,
@@ -938,11 +955,14 @@ export class CommentService {
           }),
         );
 
-        this.commentGateway.updateComment({
-          ...comment,
-          replysCount: comment.replies.length,
-          fileUrl: filesUrl[0],
-        });
+        this.commentGateway.updateComment(
+          comment.userId,
+          {
+            ...comment,
+            replysCount: comment.replies.length,
+            fileUrl: filesUrl[0],
+          }
+        );
 
         return {
           ...comment,
@@ -1012,11 +1032,14 @@ export class CommentService {
           });
         }
 
-        this.commentGateway.updateComment({
-          ...comment,
-          replysCount: comment.replies.length,
-          fileUrl: fileUrlS3,
-        });
+        this.commentGateway.updateComment(
+          comment.userId,
+          {
+            ...comment,
+            replysCount: comment.replies.length,
+            fileUrl: fileUrlS3,
+          }
+        );
 
         return {
           ...comment,
@@ -1138,9 +1161,9 @@ export class CommentService {
       });
 
       if (deletedComment.parentId) {
-        this.commentGateway.deleteReplyComment(deletedComment);
+        this.commentGateway.deleteReplyComment(comment.userId, deletedComment);
       } else {
-        this.commentGateway.deleteComment(deletedComment);
+        this.commentGateway.deleteComment(comment.userId, deletedComment);
       }
 
       return deletedComment;
@@ -1208,7 +1231,7 @@ export class CommentService {
           message: 'Like your comment',
         });
         this.notificationGateway.sendNotifications(activeUserId, notification);
-        this.commentGateway.newLike(createdLike);
+        this.commentGateway.newLike(activeUserId, createdLike);
 
         return {
           message: 'Like successfully',
@@ -1243,7 +1266,7 @@ export class CommentService {
         this.notificationGateway.sendNotifications(activeUserId, notification);
       }
 
-      this.commentGateway.newLike(deletedLike);
+      this.commentGateway.newLike(activeUserId, deletedLike);
 
       return {
         message: 'Unlike successfully',

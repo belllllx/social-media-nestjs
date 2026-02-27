@@ -2,9 +2,8 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
   WebSocketGateway,
-  WebSocketServer,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { Socket } from 'socket.io';
 import { Comment, Like, User } from 'generated/prisma';
 import { handleWsConnection } from 'src/utils/helpers/handle-ws-connection';
 import { JwtService } from '@nestjs/jwt';
@@ -16,11 +15,11 @@ interface ServerToClientEvents {
       user: Omit<User, 'passwordHash'>;
       fileUrl?: string;
       parent?:
-        | (Comment & {
-            user: Omit<User, 'passwordHash'>;
-            fileUrl?: string;
-          })
-        | null;
+      | (Comment & {
+        user: Omit<User, 'passwordHash'>;
+        fileUrl?: string;
+      })
+      | null;
       replysCount: number;
     },
   ) => void;
@@ -45,12 +44,8 @@ interface ServerToClientEvents {
   },
 })
 export class CommentGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
-{
+  implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(private jwtService: JwtService) {}
-
-  @WebSocketServer()
-  private server: Server<any, ServerToClientEvents>;
 
   private clients = new Map<string, Socket<any, ServerToClientEvents>>();
 
@@ -63,22 +58,27 @@ export class CommentGateway
   }
 
   newComment(
+    userId: string,
     comment: Comment & {
       user: Omit<User, 'passwordHash'>;
       fileUrl?: string;
       parent?:
-        | (Comment & {
-            user: Omit<User, 'passwordHash'>;
-            fileUrl?: string;
-          })
-        | null;
+      | (Comment & {
+        user: Omit<User, 'passwordHash'>;
+        fileUrl?: string;
+      })
+      | null;
       replysCount: number;
     },
   ) {
-    this.server.emit('createComment', comment);
+    const client = this.clients.get(userId);
+    if (client) {
+      client.broadcast.emit('createComment', comment);
+    }
   }
 
   updateComment(
+    userId: string,
     comment: Comment & {
       likes: (Like & { user: Omit<User, 'passwordHash'> })[];
       user: Omit<User, 'passwordHash'>;
@@ -87,18 +87,30 @@ export class CommentGateway
       replysCount: number;
     },
   ) {
-    this.server.emit('updateComment', comment);
+    const client = this.clients.get(userId);
+    if (client) {
+      client.broadcast.emit('updateComment', comment);
+    }
   }
 
-  deleteComment(comment: Comment) {
-    this.server.emit('deleteComment', comment);
+  deleteComment(userId: string, comment: Comment) {
+    const client = this.clients.get(userId);
+    if (client) {
+      client.broadcast.emit('deleteComment', comment);
+    }
   }
 
-  deleteReplyComment(comment: Comment) {
-    this.server.emit('deleteReplyComment', comment);
+  deleteReplyComment(userId: string, comment: Comment) {
+    const client = this.clients.get(userId);
+    if (client) {
+      client.broadcast.emit('deleteReplyComment', comment);
+    }
   }
 
-  newLike(like: Like) {
-    this.server.emit('newLikeComment', like);
+  newLike(userId: string, like: Like) {
+    const client = this.clients.get(userId);
+    if (client) {
+      client.broadcast.emit('newLikeComment', like);
+    }
   }
 }
