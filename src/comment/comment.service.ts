@@ -597,7 +597,7 @@ export class CommentService {
           replyComment.userId,
           'Tag you in comment',
           post,
-          replyComment,
+          commentParent,
         );
         if (notification) {
           this.notificationGateway.sendNotifications(userId, notification);
@@ -653,7 +653,7 @@ export class CommentService {
         replyComment.userId,
         'Tag you in comment',
         post,
-        replyComment,
+        commentParent,
       );
       if (notification) {
         this.notificationGateway.sendNotifications(userId, notification);
