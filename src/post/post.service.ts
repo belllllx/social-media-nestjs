@@ -350,7 +350,7 @@ export class PostService {
   async findPosts(cursor?: string, limit: number = 5) {
     try {
       const posts = await this.prismaService.post.findMany({
-        take: -(limit + 1),
+        take: limit + 1,
         cursor: cursor
           ? {
             id: cursor,
@@ -444,7 +444,7 @@ export class PostService {
       let nextCursor: string | null = null;
 
       if (postsWithFiles.length > limit) {
-        const nextItem = postsWithFiles.shift();
+        const nextItem = postsWithFiles.pop();
         nextCursor = nextItem!.id;
       }
 
@@ -571,7 +571,7 @@ export class PostService {
         where: {
           userId,
         },
-        take: -(limit + 1),
+        take: limit + 1,
         cursor: cursor
           ? {
             id: cursor,
@@ -668,7 +668,7 @@ export class PostService {
       let nextCursor: string | null = null;
 
       if (postsWithFiles.length > limit) {
-        const nextItem = postsWithFiles.shift();
+        const nextItem = postsWithFiles.pop();
         nextCursor = nextItem!.id;
       }
 

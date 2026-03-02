@@ -219,7 +219,7 @@ export class UserService {
             },
           },
         },
-        take: -(limit + 1),
+        take: limit + 1,
         cursor: cursor
           ? {
               id: cursor,
@@ -239,7 +239,7 @@ export class UserService {
       let nextCursor: string | null = null;
 
       if (users.length > limit) {
-        const nextItem = users.shift();
+        const nextItem = users.pop();
         nextCursor = nextItem!.id;
       }
 

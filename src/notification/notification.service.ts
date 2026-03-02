@@ -83,7 +83,7 @@ export class NotificationService {
         },
         receiverId: activeUserId,
       },
-      take: -(limit + 1),
+      take: limit + 1,
       cursor: cursor
         ? {
             id: cursor,
@@ -104,7 +104,7 @@ export class NotificationService {
     let nextCursor: string | null = null;
 
     if (notifies.length > limit) {
-      const nextItem = notifies.shift();
+      const nextItem = notifies.pop();
       nextCursor = nextItem!.id;
     }
 

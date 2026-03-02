@@ -700,7 +700,7 @@ export class CommentService {
       }
 
       const comments = await this.prismaService.comment.findMany({
-        take: -(limit + 1),
+        take: limit + 1,
         cursor: cursor
           ? {
             id: cursor,
@@ -815,7 +815,7 @@ export class CommentService {
       let nextCursor: string | null = null;
 
       if (commentsWithFiles.length > limit) {
-        const nextItem = commentsWithFiles.shift();
+        const nextItem = commentsWithFiles.pop();
         nextCursor = nextItem!.id;
       }
 
