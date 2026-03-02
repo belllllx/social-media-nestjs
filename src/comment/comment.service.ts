@@ -543,6 +543,7 @@ export class CommentService {
           postId,
           userId,
           parentId,
+          replyId,
           replyToUserId,
         },
         include: {
@@ -597,7 +598,7 @@ export class CommentService {
           replyComment.userId,
           'Tag you in comment',
           post,
-          commentParent,
+          replyComment,
         );
         if (notification) {
           this.notificationGateway.sendNotifications(userId, notification);
@@ -653,7 +654,7 @@ export class CommentService {
         replyComment.userId,
         'Tag you in comment',
         post,
-        commentParent,
+        replyComment,
       );
       if (notification) {
         this.notificationGateway.sendNotifications(userId, notification);
@@ -764,16 +765,15 @@ export class CommentService {
         },
         where: {
           postId: commentOfPost.id,
+          parentId: null,
         },
         orderBy: {
           createdAt: 'desc',
         },
       });
 
-      const filterOnlyComment = comments.filter((comment) => !comment.parentId);
-
       const commentsWithFiles = await Promise.all(
-        filterOnlyComment.map(async (comment) => {
+        comments.map(async (comment) => {
           const filesFromS3 = await getFiles(
             comment.id,
             this.prismaService,
@@ -1108,7 +1108,7 @@ export class CommentService {
             user.id,
             NotificationType.REPLY,
             post.id,
-            comment.parent.id,
+            comment.replyId ?? comment.parent.id,
           );
           if (notification) {
             await this.notificationService.delete(notification);

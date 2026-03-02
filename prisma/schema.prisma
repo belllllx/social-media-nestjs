@@ -124,10 +124,14 @@ model Comment {
   parent   Comment? @relation("CommentToReplies", fields: [parentId], references: [id], onDelete: Cascade)
   parentId String?  @map("parent_id")
 
+  reply   Comment? @relation("ReplyToTags", fields: [replyId], references: [id], onDelete: Cascade)
+  replyId String?  @map("reply_id")
+
   replyToUser   User?   @relation("ReplyToUser", fields: [replyToUserId], references: [id])
   replyToUserId String?
 
   replies       Comment[]      @relation("CommentToReplies")
+  tags          Comment[]      @relation("ReplyToTags")
   likes         Like[]
   notifications Notification[]
 
