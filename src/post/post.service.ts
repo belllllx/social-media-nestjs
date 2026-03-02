@@ -301,7 +301,7 @@ export class PostService {
         userId,
         post.userId,
         'Share your post',
-        post,
+        sharePost,
       );
       if (notification) {
         this.notificationGateway.sendNotifications(userId, notification);
