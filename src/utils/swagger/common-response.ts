@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class CommonResponse<T = any> {
+export class CommonResponse<T = unknown> {
   @ApiProperty()
   status: number;
 

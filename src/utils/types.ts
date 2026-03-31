@@ -1,7 +1,7 @@
 import { ContentType } from 'generated/prisma';
 import { CreateUserDto } from 'src/user/dto/create-user.dto';
 
-export type JwtPayload<T extends object = {}> = {
+export type JwtPayload<T extends Record<string, unknown>> = {
   iat: number;
   exp: number;
 } & T;
@@ -36,7 +36,7 @@ export type FileDir =
   | 'chat-image'
   | 'chat-video';
 
-export interface ResponseFromService<T = any> {
+export interface ResponseFromService<T = unknown> {
   message: string;
   data?: T;
 }
