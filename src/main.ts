@@ -6,6 +6,7 @@ import { CommonResponse } from './utils/swagger/common-response';
 import { HttpExceptionFilter } from './utils/exception-filters/http-exception.filter';
 import { TransformInterceptor } from './utils/interceptors/transform.interceptor';
 import { LoggingInterceptor } from './utils/interceptors/logging.interceptor';
+import { ErrorsInterceptor } from './utils/interceptors/errors.interceptor';
 import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
@@ -33,9 +34,10 @@ async function bootstrap() {
     )
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, documentFactory);
+  SwaggerModule.setup('swagger', app, documentFactory);
 
   app.useGlobalInterceptors(
+    new ErrorsInterceptor(),
     new TransformInterceptor(),
     new LoggingInterceptor(),
   );

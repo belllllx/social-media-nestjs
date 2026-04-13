@@ -12,20 +12,20 @@ import { ResponseFromService } from '../types';
 
 @Injectable()
 export class TransformInterceptor<T>
-  implements NestInterceptor<T, CommonResponse<T>>
+  implements NestInterceptor<T, CommonResponse>
 {
   intercept(
     context: ExecutionContext,
     next: CallHandler,
-  ): Observable<CommonResponse<T>> {
+  ): Observable<CommonResponse> {
     const response = context.switchToHttp().getResponse<ExpressResponse>();
 
     return next.handle().pipe(
-      map((data?: ResponseFromService<T>) => ({
+      map(({ data, message }: ResponseFromService<T>) => ({
         status: response.statusCode,
         success: true,
-        message: data ? data.message : 'Operation successfully',
-        ...(data && data.data ? { data: data.data } : {}),
+        message,
+        ...(data ? { data } : {}),
       })),
     );
   }

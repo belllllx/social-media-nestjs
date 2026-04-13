@@ -13,7 +13,7 @@ export function IsNotificationType(validationOptions?: ValidationOptions) {
       propertyName: propertyName,
       options: validationOptions,
       validator: {
-        validate(value: any) {
+        validate(value: unknown) {
           return typeof value === 'string' && value in NotificationType;
         },
         defaultMessage(args: ValidationArguments) {

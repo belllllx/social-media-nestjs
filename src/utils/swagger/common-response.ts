@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class CommonResponse<T = unknown> {
+export class CommonResponse {
   @ApiProperty()
   status: number;
 
@@ -12,6 +12,12 @@ export class CommonResponse<T = unknown> {
   })
   message: string | string[];
 
-  @ApiPropertyOptional()
-  data?: T;
+  @ApiPropertyOptional({
+    oneOf: [
+      { type: 'object', additionalProperties: true },
+      { type: 'string' },
+      { type: 'array', items: {} },
+    ],
+  })
+  data?: Record<string, unknown> | string | unknown[];
 }
