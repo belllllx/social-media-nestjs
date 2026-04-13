@@ -3,9 +3,9 @@ import {
   Injectable,
   NestInterceptor,
   ExecutionContext,
-  BadGatewayException,
   CallHandler,
   HttpException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -20,7 +20,7 @@ export class ErrorsInterceptor implements NestInterceptor {
           if(err instanceof HttpException){
             return throwError(() => err);
           }
-          return throwError(() => new BadGatewayException());
+          return throwError(() => new InternalServerErrorException());
         }),
       );
   }
