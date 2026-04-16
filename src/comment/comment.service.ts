@@ -49,6 +49,7 @@ export class CommentService {
   ) {
     this.s3 = new S3Client({
       region: configServiceParam.get<string>('AWS_BUCKET_REGION')!,
+      endpoint: configServiceParam.get<string>('R2_ENDPOINT')!,
       credentials: {
         accessKeyId: configServiceParam.get<string>('AWS_ACCESS_KEY')!,
         secretAccessKey: configServiceParam.get<string>(
