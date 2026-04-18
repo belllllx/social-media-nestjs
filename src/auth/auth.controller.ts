@@ -15,7 +15,7 @@ import {
   Request as ExpressRequest,
   Response as ExpressResponse,
 } from 'express';
-import { ProviderType, User } from 'generated/prisma';
+import { Follower, ProviderType, User } from 'generated/prisma';
 import {
   ApiBody,
   ApiCreatedResponse,
@@ -116,8 +116,8 @@ export class AuthController {
   })
   getProfile(
     @Request() req: ExpressRequest,
-  ): ResponseFromService<Omit<User, 'passwordHash'>> {
-    const user = req.user as Omit<User, 'passwordHash'>;
+  ): ResponseFromService<Omit<User, 'passwordHash'> & { followings: Follower[] }> {
+    const user = req.user as Omit<User, 'passwordHash'> & { followings: Follower[] };
     return {
       message: 'User profile retrieved successfully',
       data: user,

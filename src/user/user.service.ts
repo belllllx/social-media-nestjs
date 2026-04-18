@@ -24,7 +24,7 @@ export class UserService {
     private prisma: PrismaService,
     private notificationService: NotificationService,
     private notificationGateway: NotificationGateway,
-  ) {}
+  ) { }
 
   async findOne(username: string) {
     return await this.prisma.user.findUnique({
@@ -96,6 +96,9 @@ export class UserService {
         },
         omit: {
           passwordHash: true,
+        },
+        include: {
+          followings: true,
         },
       });
       if (!user) {
@@ -177,8 +180,8 @@ export class UserService {
       take: limit + 1,
       cursor: cursor
         ? {
-            id: cursor,
-          }
+          id: cursor,
+        }
         : undefined,
       omit: {
         passwordHash: true,
@@ -222,8 +225,8 @@ export class UserService {
         take: limit + 1,
         cursor: cursor
           ? {
-              id: cursor,
-            }
+            id: cursor,
+          }
           : undefined,
         omit: {
           passwordHash: true,

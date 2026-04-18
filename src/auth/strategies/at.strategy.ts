@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { Request as ExpressRequest } from 'express';
 import { JwtPayload } from 'src/utils/types';
 import { UserService } from 'src/user/user.service';
-import { User } from 'generated/prisma';
+import { Follower, User } from 'generated/prisma';
 
 @Injectable()
 export class AtStrategy extends PassportStrategy(Strategy, 'access-token') {
@@ -25,7 +25,7 @@ export class AtStrategy extends PassportStrategy(Strategy, 'access-token') {
     });
   }
 
-  validate(payload: JwtPayload<{ id: string }>): Promise<Omit<User, 'passwordHash'>> {
+  validate(payload: JwtPayload<{ id: string }>): Promise<Omit<User, 'passwordHash'> & { followings: Follower[] }> {
     return this.userService.findById(payload.id);
   }
 }

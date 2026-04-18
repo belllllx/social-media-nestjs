@@ -71,7 +71,7 @@ model User {
   senderNotifications   Notification[] @relation("SenderNotifications")
   receiverNotifications Notification[] @relation("ReceiverNotifications")
   followers             Follower[]     @relation("followers")
-  following             Follower[]     @relation("following")
+  followings            Follower[]     @relation("followings")
 
   @@map("users")
 }
@@ -197,7 +197,7 @@ model Follower {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  follower  User @relation("following", fields: [followerId], references: [id], onDelete: Cascade)
+  follower  User @relation("followings", fields: [followerId], references: [id], onDelete: Cascade)
   following User @relation("followers", fields: [followingId], references: [id], onDelete: Cascade)
 
   @@unique([followerId, followingId])
