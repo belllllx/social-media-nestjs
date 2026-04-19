@@ -15,19 +15,42 @@ import { formatString } from 'src/utils/helpers/format-string';
 import { NotificationService } from 'src/notification/notification.service';
 import { NotificationGateway } from 'src/notification/notification.gateway';
 import { Logger } from '@nestjs/common';
+import { S3Client } from '@aws-sdk/client-s3';
+import { ConfigService } from '@nestjs/config';
+import { Express } from 'express';
+import { genFilesName } from 'src/utils/helpers/gen-files-name';
+import { putObjectS3 } from 'src/utils/helpers/put-object-s3';
+import { getObjectS3 } from 'src/utils/helpers/get-object-s3';
+import { getFileNameFromPresignedUrl } from 'src/utils/helpers/get-filename-from-presigned-url';
+import { deleteObjectS3 } from 'src/utils/helpers/delete-object-s3';
+import { EditUserInfoDto } from './dto/edit-user-info.dto';
 
 @Injectable()
 export class UserService {
+  private s3: S3Client;
   private readonly logger = new Logger(UserService.name);
 
   constructor(
-    private prisma: PrismaService,
+    configServiceParam: ConfigService,
+    private prismaService: PrismaService,
     private notificationService: NotificationService,
     private notificationGateway: NotificationGateway,
-  ) { }
+    private configService: ConfigService,
+  ) {
+    this.s3 = new S3Client({
+      region: configServiceParam.get<string>('AWS_BUCKET_REGION')!,
+      endpoint: configServiceParam.get<string>('R2_ENDPOINT')!,
+      credentials: {
+        accessKeyId: configServiceParam.get<string>('AWS_ACCESS_KEY')!,
+        secretAccessKey: configServiceParam.get<string>(
+          'AWS_SECRET_ACCESS_KEY',
+        )!,
+      },
+    });
+  }
 
   async findOne(username: string) {
-    return await this.prisma.user.findUnique({
+    return await this.prismaService.user.findUnique({
       where: {
         username,
       },
@@ -42,7 +65,7 @@ export class UserService {
         providerType === ProviderType.GOOGLE ||
         providerType === ProviderType.GITHUB
       ) {
-        return await this.prisma.user.create({
+        return await this.prismaService.user.create({
           data: {
             fullname,
             email,
@@ -57,7 +80,7 @@ export class UserService {
 
       if (password) {
         const passwordHash = await hashSecret(password);
-        return await this.prisma.user.create({
+        return await this.prismaService.user.create({
           data: {
             fullname,
             username,
@@ -90,7 +113,7 @@ export class UserService {
 
   async findById(id: string) {
     try {
-      const user = await this.prisma.user.findUnique({
+      const user = await this.prismaService.user.findUnique({
         where: {
           id,
         },
@@ -125,7 +148,7 @@ export class UserService {
 
     const passwordHash = await hashSecret(confirmPassword);
     try {
-      await this.prisma.user.update({
+      await this.prismaService.user.update({
         where: {
           email,
         },
@@ -151,7 +174,7 @@ export class UserService {
   }
 
   async findByEmail(email: string) {
-    return await this.prisma.user.findUnique({
+    return await this.prismaService.user.findUnique({
       where: {
         email,
       },
@@ -167,7 +190,7 @@ export class UserService {
     cursor?: string,
     limit: number = 5,
   ) {
-    const users = await this.prisma.user.findMany({
+    const users = await this.prismaService.user.findMany({
       where: {
         fullname: {
           contains: query,
@@ -203,7 +226,7 @@ export class UserService {
 
   async findMany(activeUserId: string, cursor?: string, limit: number = 5) {
     try {
-      const activeUser = await this.prisma.user.findUnique({
+      const activeUser = await this.prismaService.user.findUnique({
         where: {
           id: activeUserId,
         },
@@ -214,7 +237,7 @@ export class UserService {
         );
       }
 
-      const users = await this.prisma.user.findMany({
+      const users = await this.prismaService.user.findMany({
         where: {
           id: {
             not: {
@@ -281,7 +304,7 @@ export class UserService {
         );
       }
 
-      const followed = await this.prisma.follower.findUnique({
+      const followed = await this.prismaService.follower.findUnique({
         where: {
           followerId_followingId: {
             followerId,
@@ -290,7 +313,7 @@ export class UserService {
         },
       });
       if (!followed) {
-        const follower = await this.prisma.follower.create({
+        const follower = await this.prismaService.follower.create({
           data: {
             followerId,
             followingId,
@@ -311,7 +334,7 @@ export class UserService {
         };
       }
 
-      const follower = await this.prisma.follower.delete({
+      const follower = await this.prismaService.follower.delete({
         where: {
           followerId_followingId: {
             followerId,
@@ -344,6 +367,194 @@ export class UserService {
       } else if (error instanceof NotFoundException) {
         this.logger.warn(error.message, error.stack);
         throw error;
+      }
+
+      this.logger.error(error);
+      throw new InternalServerErrorException(error, 'Unexpected error');
+    }
+  }
+
+  async editUserBackground(file: Express.Multer.File, activeUserId: string) {
+    try {
+      const newFileName = genFilesName(file);
+
+      await putObjectS3(
+        newFileName,
+        this.configService.get<string>('AWS_BUCKET_NAME')!,
+        'user-background-image',
+        this.s3,
+      );
+
+      const fileUrl = await getObjectS3(
+        newFileName,
+        this.configService.get<string>('AWS_BUCKET_NAME')!,
+        'user-background-image',
+        this.s3,
+      );
+
+      await this.findById(activeUserId);
+
+      await this.prismaService.user.update({
+        where: {
+          id: activeUserId,
+        },
+        data: {
+          profileBackgroundUrl: fileUrl,
+        },
+      });
+
+      return {
+        fileUrl,
+      }
+    } catch (error: unknown) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
+        throw new InternalServerErrorException(error.message);
+      }
+
+      this.logger.error(error);
+      throw new InternalServerErrorException(error, 'Unexpected error');
+    }
+  }
+
+  async editUserProfile(file: Express.Multer.File, activeUserId: string) {
+    try {
+      const newFileName = genFilesName(file);
+
+      await putObjectS3(
+        newFileName,
+        this.configService.get<string>('AWS_BUCKET_NAME')!,
+        'user-profile-image',
+        this.s3,
+      );
+
+      const fileUrl = await getObjectS3(
+        newFileName,
+        this.configService.get<string>('AWS_BUCKET_NAME')!,
+        'user-profile-image',
+        this.s3,
+      );
+
+      await this.findById(activeUserId);
+
+      await this.prismaService.user.update({
+        where: {
+          id: activeUserId,
+        },
+        data: {
+          profileUrl: fileUrl,
+        },
+      });
+
+      return {
+        fileUrl,
+      }
+    } catch (error: unknown) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
+        throw new InternalServerErrorException(error.message);
+      }
+
+      this.logger.error(error);
+      throw new InternalServerErrorException(error, 'Unexpected error');
+    }
+  }
+
+  async deleteUserBackground(fileUrl: string, activeUserId: string) {
+    try {
+      await this.findById(activeUserId);
+
+      const fileName = getFileNameFromPresignedUrl(fileUrl);
+
+      await Promise.all([
+        deleteObjectS3(
+          fileName,
+          this.configService.get<string>('AWS_BUCKET_NAME')!,
+          'user-background-image',
+          this.s3,
+        ),
+        this.prismaService.user.update({
+          where: {
+            id: activeUserId,
+          },
+          data: {
+            profileBackgroundUrl: null,
+          },
+        }),
+      ]);
+    } catch (error: unknown) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
+        throw new InternalServerErrorException(error.message);
+      }
+
+      this.logger.error(error);
+      throw new InternalServerErrorException(error, 'Unexpected error');
+    }
+  }
+
+  async deleteUserProfile(fileUrl: string, activeUserId: string) {
+    try {
+      await this.findById(activeUserId);
+
+      const fileName = getFileNameFromPresignedUrl(fileUrl);
+
+      await Promise.all([
+        deleteObjectS3(
+          fileName,
+          this.configService.get<string>('AWS_BUCKET_NAME')!,
+          'user-profile-image',
+          this.s3,
+        ),
+        this.prismaService.user.update({
+          where: {
+            id: activeUserId,
+          },
+          data: {
+            profileUrl: null,
+          },
+        }),
+      ]);
+    } catch (error: unknown) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        this.logger.error(error.message, error.stack);
+        throw new InternalServerErrorException(error.message);
+      }
+
+      this.logger.error(error);
+      throw new InternalServerErrorException(error, 'Unexpected error');
+    }
+  }
+
+  async editUserInfo(editUserInfoDto: EditUserInfoDto & { activeUserId: string; }) {
+    try {
+      const { activeUserId, fullname, dateOfBirth, info } = editUserInfoDto;
+
+      await this.findById(activeUserId);
+      const user = await this.prismaService.user.update({
+        where: {
+          id: activeUserId,
+        },
+        data: {
+          fullname,
+          dateOfBirth,
+          info,
+        },
+        omit: {
+          passwordHash: true,
+        },
+      });
+
+      return {
+        user,
+      };
+    } catch (error: unknown) {
+      if (
+        error instanceof PrismaClientKnownRequestError
+        && error.code === "P2002"
+      ) {
+        this.logger.warn(error.message, error.stack);
+        throw new BadRequestException("Fullname already exists");
       }
 
       this.logger.error(error);

@@ -9,7 +9,6 @@ import {
 export class FileTypeValidationPipe implements PipeTransform {
   transform(
     value: Express.Multer.File[] | Express.Multer.File,
-    metadata: ArgumentMetadata,
   ) {
     const allowedMimeTypes = [
       'image/png',

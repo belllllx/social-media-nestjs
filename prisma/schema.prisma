@@ -50,7 +50,7 @@ enum NotificationType {
 
 model User {
   id                   String       @id @default(uuid())
-  fullname             String
+  fullname             String       @unique
   username             String?      @unique
   email                String       @unique
   passwordHash         String?      @map("password_hash")

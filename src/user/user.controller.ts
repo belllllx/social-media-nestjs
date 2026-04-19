@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -9,12 +10,17 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Request,
   Response,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
+  ApiBody,
+  ApiConsumes,
   ApiOkResponse,
   ApiQuery,
   ApiUnauthorizedResponse,
@@ -29,10 +35,14 @@ import {
 } from 'express';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { AtAuthGuard } from 'src/auth/guards/at-auth.guard';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { UserFileTypeValidationPipe } from 'src/utils/validations/user-file-type-validation-pipe';
+import { DeleteUserImageDto } from './dto/delete-user-image.dto';
+import { EditUserInfoDto } from './dto/edit-user-info.dto';
 
 @Controller('user')
 export class UserController {
-  constructor(private userService: UserService) {}
+  constructor(private userService: UserService) { }
 
   @UseGuards(ResetPasswordAuthGuard)
   @Patch('reset-password')
@@ -107,7 +117,7 @@ export class UserController {
   })
   async findById(
     @Param('userId', ParseUUIDPipe) userId: string,
-  ): Promise<ResponseFromService>{
+  ): Promise<ResponseFromService> {
     const user = await this.userService.findById(userId);
 
     return {
@@ -155,13 +165,153 @@ export class UserController {
   async follow(
     @Param('followerId', ParseUUIDPipe) followerId: string,
     @Param('followingId', ParseUUIDPipe) followingId: string,
-  ): Promise<ResponseFromService>{
+  ): Promise<ResponseFromService> {
     const follower = await this.userService.follow(followerId, followingId);
 
     return {
       message: `${follower.status === 'follow' ? 'Follow' : 'Unfollow'} action successfully`,
       data: {
         follower: follower.follower,
+      },
+    }
+  }
+
+  @UseGuards(AtAuthGuard)
+  @Put('background/edit/:activeUserId')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized',
+    type: CommonResponse,
+  })
+  @ApiOkResponse({
+    description: 'Edit user background successfully',
+    type: CommonResponse,
+  })
+  async editUserBackground(
+    @UploadedFile(new UserFileTypeValidationPipe()) file: Express.Multer.File,
+    @Param('activeUserId', ParseUUIDPipe) activeUserId: string,
+  ): Promise<ResponseFromService> {
+    const { fileUrl } = await this.userService.editUserBackground(file, activeUserId);
+
+    return {
+      message: 'Edit user background successfully',
+      data: {
+        fileUrl,
+      },
+    }
+  }
+
+  @UseGuards(AtAuthGuard)
+  @Put('profile/edit/:activeUserId')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized',
+    type: CommonResponse,
+  })
+  @ApiOkResponse({
+    description: 'Edit user profile successfully',
+    type: CommonResponse,
+  })
+  async editUserProfile(
+    @UploadedFile(new UserFileTypeValidationPipe()) file: Express.Multer.File,
+    @Param('activeUserId', ParseUUIDPipe) activeUserId: string,
+  ): Promise<ResponseFromService> {
+    const { fileUrl } = await this.userService.editUserProfile(file, activeUserId);
+
+    return {
+      message: 'Edit user profile successfully',
+      data: {
+        fileUrl,
+      },
+    }
+  }
+
+  @UseGuards(AtAuthGuard)
+  @Delete('background/delete/file/:activeUserId')
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized',
+    type: CommonResponse,
+  })
+  @ApiOkResponse({
+    description: 'Delete user background successfully',
+    type: CommonResponse,
+  })
+  async deleteUserBackground(
+    @Body() deleteUserImageDto: DeleteUserImageDto,
+    @Param('activeUserId', ParseUUIDPipe) activeUserId: string,
+  ): Promise<ResponseFromService> {
+    await this.userService.deleteUserBackground(deleteUserImageDto.fileUrl, activeUserId);
+
+    return {
+      message: 'Delete user background successfully',
+    }
+  }
+
+  @UseGuards(AtAuthGuard)
+  @Delete('profile/delete/file/:activeUserId')
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized',
+    type: CommonResponse,
+  })
+  @ApiOkResponse({
+    description: 'Delete user profile successfully',
+    type: CommonResponse,
+  })
+  async deleteUserProfile(
+    @Body() deleteUserImageDto: DeleteUserImageDto,
+    @Param('activeUserId', ParseUUIDPipe) activeUserId: string,
+  ): Promise<ResponseFromService> {
+    await this.userService.deleteUserProfile(deleteUserImageDto.fileUrl, activeUserId);
+
+    return {
+      message: 'Delete user profile successfully',
+    }
+  }
+
+  @UseGuards(AtAuthGuard)
+  @Put('edit-info/:activeUserId')
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized',
+    type: CommonResponse,
+  })
+  @ApiOkResponse({
+    description: 'Edit user info successfully',
+    type: CommonResponse,
+  })
+  async editUserInfo(
+    @Body() editUserInfoDto: EditUserInfoDto,
+    @Param('activeUserId', ParseUUIDPipe) activeUserId: string,
+  ): Promise<ResponseFromService>{
+    const { user } = await this.userService.editUserInfo({...editUserInfoDto, activeUserId});
+
+    return {
+      message: 'Edit user info successfully',
+      data: {
+        user,
       },
     }
   }

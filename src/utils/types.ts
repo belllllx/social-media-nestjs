@@ -34,7 +34,10 @@ export type FileDir =
   | 'comment-image'
   | 'reply-image'
   | 'chat-image'
-  | 'chat-video';
+  | 'chat-video'
+  | 'user-background-image'
+  | 'user-profile-image'
+  ;
 
 export interface ResponseFromService<T = unknown> {
   message: string;
