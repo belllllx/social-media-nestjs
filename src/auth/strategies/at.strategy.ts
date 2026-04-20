@@ -25,7 +25,13 @@ export class AtStrategy extends PassportStrategy(Strategy, 'access-token') {
     });
   }
 
-  validate(payload: JwtPayload<{ id: string }>): Promise<Omit<User, 'passwordHash'> & { followings: Follower[] }> {
+  validate(payload: JwtPayload<{ id: string }>): Promise<
+    Omit<User, 'passwordHash'> &
+    { 
+      followings: (Follower & { following: Omit<User, 'passwordHash'> })[];
+      followers: (Follower & { follower: Omit<User, 'passwordHash'> })[];
+    }
+  > {
     return this.userService.findById(payload.id);
   }
 }

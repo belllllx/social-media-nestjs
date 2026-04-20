@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from 'src/user/user.service';
-import { ProviderType, User } from 'generated/prisma';
+import { Follower, ProviderType, User } from 'generated/prisma';
 import { CreateUserDto } from './dto/create-user.dto';
 import { CreateSocialUserDto, ISocialUserPayload } from 'src/utils/types';
 import { createJwt } from 'src/utils/helpers/create-jwt';
@@ -15,12 +15,12 @@ export class AuthService {
     private userService: UserService,
     private jwtService: JwtService,
     private configService: ConfigService,
-  ) {}
+  ) { }
 
   async validateUser(
     username: string,
     password: string,
-  ){
+  ) {
     const user = await this.userService.findOne(username);
     if (
       user &&
@@ -43,7 +43,11 @@ export class AuthService {
     return this.userService.createUser(createUserDto);
   }
 
-  refreshToken(user: Omit<User, 'passwordHash'>) {
+  refreshToken(user: Omit<User, 'passwordHash'> &
+  {
+    followings: (Follower & { following: Omit<User, 'passwordHash'> })[];
+    followers: (Follower & { follower: Omit<User, 'passwordHash'> })[];
+  }) {
     return createJwtUser(user, this.jwtService, this.configService);
   }
 

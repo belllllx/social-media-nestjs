@@ -116,8 +116,19 @@ export class AuthController {
   })
   getProfile(
     @Request() req: ExpressRequest,
-  ): ResponseFromService<Omit<User, 'passwordHash'> & { followings: Follower[] }> {
-    const user = req.user as Omit<User, 'passwordHash'> & { followings: Follower[] };
+  ): ResponseFromService<
+    Omit<User, 'passwordHash'> &
+    {
+      followings: (Follower & { following: Omit<User, 'passwordHash'> })[];
+      followers: (Follower & { follower: Omit<User, 'passwordHash'> })[];
+    }
+  > {
+    const user = req.user as Omit<User, 'passwordHash'> &
+    {
+      followings: (Follower & { following: Omit<User, 'passwordHash'> })[];
+      followers: (Follower & { follower: Omit<User, 'passwordHash'> })[];
+    };
+    
     return {
       message: 'User profile retrieved successfully',
       data: user,
@@ -139,7 +150,11 @@ export class AuthController {
     @Request() req: ExpressRequest,
     @Response({ passthrough: true }) res: ExpressResponse,
   ): Promise<ResponseFromService<ITokenObject>> {
-    const user = req.user as Omit<User, 'passwordHash'>;
+    const user = req.user as Omit<User, 'passwordHash'> &
+    {
+      followings: (Follower & { following: Omit<User, 'passwordHash'> })[];
+      followers: (Follower & { follower: Omit<User, 'passwordHash'> })[];
+    };
     const { accessToken, refreshToken } =
       await this.authService.refreshToken(user);
 
@@ -179,7 +194,7 @@ export class AuthController {
   @ApiTemporaryRedirectResponse({
     description: 'Redirect to Google for authentication',
   })
-  googleLogin() {}
+  googleLogin() { }
 
   @UseGuards(GoogleAuthGuard)
   @Get('google/callback')
@@ -215,7 +230,7 @@ export class AuthController {
   @ApiTemporaryRedirectResponse({
     description: 'Redirect to Github for authentication',
   })
-  githubLogin() {}
+  githubLogin() { }
 
   @UseGuards(GithubAuthGuard)
   @Get('github/callback')

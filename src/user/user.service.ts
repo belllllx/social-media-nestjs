@@ -17,13 +17,13 @@ import { NotificationGateway } from 'src/notification/notification.gateway';
 import { Logger } from '@nestjs/common';
 import { S3Client } from '@aws-sdk/client-s3';
 import { ConfigService } from '@nestjs/config';
-import { Express } from 'express';
 import { genFilesName } from 'src/utils/helpers/gen-files-name';
 import { putObjectS3 } from 'src/utils/helpers/put-object-s3';
 import { getObjectS3 } from 'src/utils/helpers/get-object-s3';
 import { getFileNameFromPresignedUrl } from 'src/utils/helpers/get-filename-from-presigned-url';
 import { deleteObjectS3 } from 'src/utils/helpers/delete-object-s3';
 import { EditUserInfoDto } from './dto/edit-user-info.dto';
+import { Express } from 'express';
 
 @Injectable()
 export class UserService {
@@ -121,7 +121,30 @@ export class UserService {
           passwordHash: true,
         },
         include: {
-          followings: true,
+          followings: {
+            include: {
+              following: {
+                include: {
+                  followers: true,
+                },
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
+          followers: {
+            include: {
+              follower: {
+                include: {
+                  followers: true,
+                },
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
         },
       });
       if (!user) {
@@ -255,7 +278,24 @@ export class UserService {
           passwordHash: true,
         },
         include: {
-          followers: true,
+          followings: {
+            include: {
+              following: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
+          followers: {
+            include: {
+              follower: {
+                omit: {
+                  passwordHash: true,
+                },
+              },
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
@@ -318,6 +358,24 @@ export class UserService {
             followerId,
             followingId,
           },
+          include: {
+            following: {
+              include: {
+                followers: true,
+              },
+              omit: {
+                passwordHash: true,
+              },
+            },
+            follower: {
+              include: {
+                followers: true,
+              },
+              omit: {
+                passwordHash: true,
+              },
+            },
+          },
         });
 
         const notification = await this.notificationService.create({
@@ -339,6 +397,24 @@ export class UserService {
           followerId_followingId: {
             followerId,
             followingId,
+          },
+        },
+        include: {
+          following: {
+            include: {
+              followers: true,
+            },
+            omit: {
+              passwordHash: true,
+            },
+          },
+          follower: {
+            include: {
+              followers: true,
+            },
+            omit: {
+              passwordHash: true,
+            },
           },
         },
       });
