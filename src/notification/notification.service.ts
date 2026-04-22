@@ -8,16 +8,36 @@ import { CreateNotificationDto } from './dto/create-notification.dto';
 import { PrismaClientKnownRequestError } from 'generated/prisma/runtime/library';
 import { Notification, NotificationType, User } from 'generated/prisma';
 import { Logger } from '@nestjs/common';
+import { getUserImage } from 'src/utils/helpers/get-user-image';
+import { S3Client } from '@aws-sdk/client-s3';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class NotificationService {
+  private s3: S3Client;
+
   private readonly logger = new Logger(NotificationService.name);
 
-  constructor(private prismaService: PrismaService) {}
+  constructor(
+    configServiceParam: ConfigService,
+    private configService: ConfigService,
+    private prismaService: PrismaService,
+  ) {
+    this.s3 = new S3Client({
+      region: configServiceParam.get<string>('AWS_BUCKET_REGION')!,
+      endpoint: configServiceParam.get<string>('R2_ENDPOINT')!,
+      credentials: {
+        accessKeyId: configServiceParam.get<string>('AWS_ACCESS_KEY')!,
+        secretAccessKey: configServiceParam.get<string>(
+          'AWS_SECRET_ACCESS_KEY',
+        )!,
+      },
+    });
+  }
 
-  create(createNotificationDto: CreateNotificationDto) {
+  async create(createNotificationDto: CreateNotificationDto) {
     try {
-      return this.prismaService.notification.create({
+      const notification = await this.prismaService.notification.create({
         data: createNotificationDto,
         include: {
           sender: {
@@ -27,6 +47,12 @@ export class NotificationService {
           },
         },
       });
+
+      const userUpdated = await getUserImage(notification.sender, this.configService, this.s3);
+      return {
+        ...notification,
+        sender: userUpdated,
+      }
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
         this.logger.error(error.message, error.stack);
@@ -57,7 +83,18 @@ export class NotificationService {
             },
           },
         });
-      return notificationsWithSender;
+
+      const updatedNotificationsWithSender = await Promise.all(
+        notificationsWithSender.map(async (notiWithSender) => {
+          const userUpdated = await getUserImage(notiWithSender.sender, this.configService, this.s3);
+          return {
+            ...notiWithSender,
+            sender: userUpdated,
+          }
+        }),
+      );
+
+      return updatedNotificationsWithSender;
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
         this.logger.error(error.message, error.stack);
@@ -86,8 +123,8 @@ export class NotificationService {
       take: limit + 1,
       cursor: cursor
         ? {
-            id: cursor,
-          }
+          id: cursor,
+        }
         : undefined,
       include: {
         sender: {
@@ -101,6 +138,16 @@ export class NotificationService {
       },
     });
 
+    const updatedNotifies = await Promise.all(
+      notifies.map(async (notify) => {
+        const userUpdated = await getUserImage(notify.sender, this.configService, this.s3);
+        return {
+          ...notify,
+          sender: userUpdated,
+        }
+      }),
+    );
+
     let nextCursor: string | null = null;
 
     if (notifies.length > limit) {
@@ -109,7 +156,7 @@ export class NotificationService {
     }
 
     return {
-      notifies,
+      notifies: updatedNotifies,
       nextCursor,
     };
   }
@@ -127,7 +174,7 @@ export class NotificationService {
         );
       }
 
-      return this.prismaService.notification.update({
+      const updatedNotify = await this.prismaService.notification.update({
         where: {
           id: notification.id,
         },
@@ -142,6 +189,12 @@ export class NotificationService {
           },
         },
       });
+
+      const userUpdated = await getUserImage(updatedNotify.sender, this.configService, this.s3);
+      return {
+        ...updatedNotify,
+        sender: userUpdated,
+      }
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
         this.logger.error(error.message, error.stack);
@@ -165,7 +218,7 @@ export class NotificationService {
     commentId?: string,
   ) {
     try {
-      return this.prismaService.notification.findMany({
+      const notifies = await this.prismaService.notification.findMany({
         where: {
           senderId,
           receiverId,
@@ -180,6 +233,18 @@ export class NotificationService {
           },
         },
       });
+
+      const updatedNotifies = await Promise.all(
+        notifies.map(async (notify) => {
+          const userUpdated = await getUserImage(notify.sender, this.configService, this.s3);
+          return {
+            ...notify,
+            sender: userUpdated,
+          }
+        }),
+      );
+
+      return updatedNotifies;
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
         this.logger.error(error.message, error.stack);
@@ -237,6 +302,14 @@ export class NotificationService {
             },
           },
         });
+      }
+
+      if (notification) {
+        const userUpdated = await getUserImage(notification.sender, this.configService, this.s3);
+        return {
+          ...notification,
+          sender: userUpdated,
+        }
       }
 
       return notification;

@@ -24,8 +24,8 @@ import { getFileNameFromPresignedUrl } from 'src/utils/helpers/get-filename-from
 import { deleteObjectS3 } from 'src/utils/helpers/delete-object-s3';
 import { EditUserInfoDto } from './dto/edit-user-info.dto';
 import { getUserImage } from 'src/utils/helpers/get-user-image';
-import { Express } from 'express';
 import { updateUserFollower, updateUserFollowing, updateUsersFollower, updateUsersFollowing } from 'src/utils/helpers/update-user-content-like';
+import { Express } from 'express';
 
 @Injectable()
 export class UserService {
@@ -244,6 +244,13 @@ export class UserService {
       },
     });
 
+    const updatedUsers = await Promise.all(
+      users.map(async (user) => {
+        const userUpdated = await getUserImage(user, this.configService, this.s3);
+        return userUpdated;
+      }),
+    );
+
     let nextCursor: string | null = null;
 
     if (users.length > limit) {
@@ -252,7 +259,7 @@ export class UserService {
     }
 
     return {
-      users,
+      users: updatedUsers,
       nextCursor,
     };
   }
@@ -312,6 +319,16 @@ export class UserService {
         },
       });
 
+      const updatedUsers = await Promise.all(
+        users.map(async (user) => {
+          const userUpdated = await getUserImage(user, this.configService, this.s3);
+          return {
+            ...user,
+            ...userUpdated,
+          };
+        }),
+      );
+
       let nextCursor: string | null = null;
 
       if (users.length > limit) {
@@ -320,7 +337,7 @@ export class UserService {
       }
 
       return {
-        users,
+        users: updatedUsers,
         nextCursor,
       };
     } catch (error: unknown) {
