@@ -9,7 +9,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { User } from 'generated/prisma';
+import { Follower, User } from 'generated/prisma';
 import { Server, Socket } from 'socket.io';
 import { WsAuthGuard } from 'src/auth/guards/ws-auth.guard';
 import { handleWsConnection } from 'src/utils/helpers/handle-ws-connection';
@@ -20,6 +20,10 @@ interface ServerToClientEvents {
   usersActive: (
     users: (Omit<User, 'passwordHash'> & { active: boolean })[],
   ) => void;
+  follow: (follower: Follower & {
+    following: Omit<User, 'passwordHash'> & { followers: Follower[] };
+    follower: Omit<User, 'passwordHash'> & { followers: Follower[] };
+  }) => void;
 }
 
 @UseGuards(WsAuthGuard)
@@ -31,7 +35,7 @@ interface ServerToClientEvents {
   },
 })
 export class UserGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  constructor(private jwtService: JwtService) {}
+  constructor(private jwtService: JwtService) { }
 
   private clients = new Map<string, Socket<any, ServerToClientEvents>>();
 
@@ -103,6 +107,19 @@ export class UserGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const index = this.users.findIndex((user) => user.id === userIdToDelete);
     if (index !== -1) {
       this.users.splice(index, 1);
+    }
+  }
+
+  follow(
+    userId: string,
+    follower: Follower & {
+      following: Omit<User, 'passwordHash'> & { followers: Follower[] };
+      follower: Omit<User, 'passwordHash'> & { followers: Follower[] };
+    }
+  ) {
+    const client = this.clients.get(userId);
+    if (client) {
+      client.broadcast.emit('follow', follower);
     }
   }
 }

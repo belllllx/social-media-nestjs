@@ -26,6 +26,7 @@ import { EditUserInfoDto } from './dto/edit-user-info.dto';
 import { getUserImage } from 'src/utils/helpers/get-user-image';
 import { updateUserFollower, updateUserFollowing, updateUsersFollower, updateUsersFollowing } from 'src/utils/helpers/update-user-content-like';
 import { Express } from 'express';
+import { UserGateway } from './user.gateway';
 
 @Injectable()
 export class UserService {
@@ -37,6 +38,7 @@ export class UserService {
     private prismaService: PrismaService,
     private notificationService: NotificationService,
     private notificationGateway: NotificationGateway,
+    private userGateway: UserGateway,
     private configService: ConfigService,
   ) {
     this.s3 = new S3Client({
@@ -408,6 +410,15 @@ export class UserService {
         const userFollowingUpdated = await updateUserFollowing(follower.following, this.configService, this.s3);
         const userFollowerUpdated = await updateUserFollower(follower.follower, this.configService, this.s3);
 
+        this.userGateway.follow(
+          followerId,
+          {
+            ...follower,
+            following: userFollowingUpdated,
+            follower: userFollowerUpdated,
+          },
+        );
+
         const notification = await this.notificationService.create({
           type: NotificationType.FOLLOW,
           senderId: followerId,
@@ -455,6 +466,15 @@ export class UserService {
 
       const userFollowingUpdated = await updateUserFollowing(follower.following, this.configService, this.s3);
       const userFollowerUpdated = await updateUserFollower(follower.follower, this.configService, this.s3);
+
+      this.userGateway.follow(
+        followerId,
+        {
+          ...follower,
+          following: userFollowingUpdated,
+          follower: userFollowerUpdated,
+        },
+      );
 
       const notification = await this.notificationService.findByUser(
         followerId,
