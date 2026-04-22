@@ -31,7 +31,7 @@ interface ServerToClientEvents {
     },
   ) => void;
   deletePost: (post: Post) => void;
-  newLike: (like: Like) => void;
+  newLike: (like: Like & { user: Omit<User, 'passwordHash'> }) => void;
 }
 
 @WebSocketGateway({
@@ -94,7 +94,7 @@ export class PostGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  newLike(userId: string, like: Like) {
+  newLike(userId: string, like: Like & { user: Omit<User, 'passwordHash'> }) {
     const client = this.clients.get(userId);
     if (client) {
       client.broadcast.emit('newLike', like);

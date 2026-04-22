@@ -1,10 +1,15 @@
-import { ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { CreatePostDto } from './create-post.dto';
-import { IsBoolean, IsOptional } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsOptional } from 'class-validator';
 
 export class UpdatePostDto extends PartialType(CreatePostDto) {
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
   shouldDeleteCurrentFiles?: boolean;
+
+  @ApiProperty()
+  @IsBoolean()
+  @IsNotEmpty()
+  isSharePost: boolean;
 }

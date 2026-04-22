@@ -38,6 +38,8 @@ import { getFiles } from 'src/utils/helpers/get-files';
 import { getFileInfo } from 'src/utils/helpers/get-file-info';
 import { CreateSharePostDto } from './dto/create-share-post.dto';
 import { Logger } from '@nestjs/common';
+import { getUserImage } from 'src/utils/helpers/get-user-image';
+import { updateUsersPostLike } from 'src/utils/helpers/update-user-content-like';
 import { Express } from 'express';
 
 @Injectable()
@@ -130,6 +132,7 @@ export class PostService {
 
     try {
       await this.userService.findById(userId);
+
       const post = await this.prismaService.post.create({
         data: {
           message,
@@ -145,6 +148,8 @@ export class PostService {
           comments: true,
         },
       });
+
+      const userUpdated = await getUserImage(post.user, this.configService, this.s3);
 
       if (!filesUrl || !filesUrl.length) {
         notifications = await createNotifications(
@@ -162,12 +167,14 @@ export class PostService {
           post.userId,
           {
             ...post,
+            user: userUpdated,
             commentsCount: post.comments.length,
           }
         );
 
         return {
           ...post,
+          user: userUpdated,
           commentsCount: post.comments.length,
         };
       }
@@ -220,6 +227,7 @@ export class PostService {
           post.userId,
           {
             ...post,
+            user: userUpdated,
             filesUrl: filesFromS3,
             commentsCount: post.comments.length,
           }
@@ -227,6 +235,7 @@ export class PostService {
 
         return {
           ...post,
+          user: userUpdated,
           filesUrl,
           commentsCount: post.comments.length,
         };
@@ -296,6 +305,10 @@ export class PostService {
           comments: true,
         },
       });
+
+      const userUpdatedSharePost = await getUserImage(sharePost.user, this.configService, this.s3);
+      const userUpdatedPost = await getUserImage(post.user, this.configService, this.s3);
+
       const notification = await createNotification(
         this.notificationService,
         NotificationType.SHARE,
@@ -318,9 +331,11 @@ export class PostService {
         sharePost.userId,
         {
           ...sharePost,
+          user: userUpdatedSharePost,
           commentsCount: sharePost.comments.length,
           parent: {
             ...post,
+            user: userUpdatedPost,
             filesUrl: filesFromS3,
           },
         }
@@ -328,9 +343,11 @@ export class PostService {
 
       return {
         ...sharePost,
+        user: userUpdatedSharePost,
         commentsCount: sharePost.comments.length,
         parent: {
           ...post,
+          user: userUpdatedPost,
           filesUrl: filesFromS3,
         },
       };
@@ -404,6 +421,8 @@ export class PostService {
 
       const postsWithFiles = await Promise.all(
         posts.map(async (post) => {
+          const userUpdatedPost = await getUserImage(post.user, this.configService, this.s3);
+
           const commentsCount = post.comments.filter(
             (comment) => !comment.parentId,
           ).length;
@@ -415,7 +434,11 @@ export class PostService {
             this.s3,
           );
 
+          const updatedUsersPostLike = await updateUsersPostLike(post, this.configService, this.s3);
+
           if (post.parent) {
+            const userUpdatedParentPost = await getUserImage(post.parent.user, this.configService, this.s3);
+
             const postParentFilesFromS3 = await getFiles(
               post.parent.id,
               this.prismaService,
@@ -425,10 +448,13 @@ export class PostService {
 
             return {
               ...post,
+              likes: updatedUsersPostLike,
+              user: userUpdatedPost,
               commentsCount,
               filesUrl: filesFromS3,
               parent: {
                 ...post.parent,
+                user: userUpdatedParentPost,
                 filesUrl: postParentFilesFromS3,
               },
             };
@@ -436,6 +462,8 @@ export class PostService {
 
           return {
             ...post,
+            likes: updatedUsersPostLike,
+            user: userUpdatedPost,
             commentsCount,
             filesUrl: filesFromS3,
           };
@@ -526,7 +554,13 @@ export class PostService {
         this.s3,
       );
 
+      const userUpdatedPost = await getUserImage(post.user, this.configService, this.s3);
+
+      const updatedUsersPostLike = await updateUsersPostLike(post, this.configService, this.s3);
+
       if (post.parent) {
+        const userUpdatedParentPost = await getUserImage(post.parent.user, this.configService, this.s3);
+
         const postParentFilesFromS3 = await getFiles(
           post.parent.id,
           this.prismaService,
@@ -536,10 +570,13 @@ export class PostService {
 
         return {
           ...post,
+          likes: updatedUsersPostLike,
+          user: userUpdatedPost,
           commentsCount,
           filesUrl: filesFromS3,
           parent: {
             ...post.parent,
+            user: userUpdatedParentPost,
             filesUrl: postParentFilesFromS3,
           },
         };
@@ -547,6 +584,8 @@ export class PostService {
 
       return {
         ...post,
+        likes: updatedUsersPostLike,
+        user: userUpdatedPost,
         commentsCount,
         filesUrl: filesFromS3,
       };
@@ -622,12 +661,13 @@ export class PostService {
           createdAt: 'desc',
         },
       });
-      if (!posts || !posts.length) {
-        throw new NotFoundException(`Post by user id ${userId} not found`);
-      }
 
       const postsWithFiles = await Promise.all(
         posts.map(async (post) => {
+          const userUpdatedPost = await getUserImage(post.user, this.configService, this.s3);
+
+          const updatedUsersPostLike = await updateUsersPostLike(post, this.configService, this.s3);
+
           const commentsCount = post.comments.filter(
             (comment) => !comment.parentId,
           ).length;
@@ -640,6 +680,8 @@ export class PostService {
           );
 
           if (post.parent) {
+            const userUpdatedParentPost = await getUserImage(post.parent.user, this.configService, this.s3);
+
             const postParentFilesFromS3 = await getFiles(
               post.parent.id,
               this.prismaService,
@@ -649,10 +691,13 @@ export class PostService {
 
             return {
               ...post,
+              likes: updatedUsersPostLike,
+              user: userUpdatedPost,
               commentsCount,
               filesUrl: filesFromS3,
               parent: {
                 ...post.parent,
+                user: userUpdatedParentPost,
                 filesUrl: postParentFilesFromS3,
               },
             };
@@ -660,6 +705,8 @@ export class PostService {
 
           return {
             ...post,
+            likes: updatedUsersPostLike,
+            user: userUpdatedPost,
             commentsCount,
             filesUrl: filesFromS3,
           };
@@ -681,9 +728,6 @@ export class PostService {
       if (error instanceof PrismaClientKnownRequestError) {
         this.logger.error(error.message, error.stack);
         throw new InternalServerErrorException(error.message);
-      } else if (error instanceof NotFoundException) {
-        this.logger.warn(error.message, error.stack);
-        throw error;
       }
 
       this.logger.error(error);
@@ -692,9 +736,9 @@ export class PostService {
   }
 
   async updatePost(updatePostDto: UpdatePostDto & { postId: string }) {
-    const { message, postId, filesUrl, shouldDeleteCurrentFiles } =
+    const { message, postId, filesUrl, shouldDeleteCurrentFiles, isSharePost } =
       updatePostDto;
-    if (!message && (!filesUrl || !filesUrl.length)) {
+    if (!isSharePost && !message && (!filesUrl || !filesUrl.length)) {
       throw new BadRequestException('Post must contain a message or files');
     }
 
@@ -761,6 +805,10 @@ export class PostService {
         (comment) => !comment.parentId,
       ).length;
 
+      const userUpdatedPost = await getUserImage(post.user, this.configService, this.s3);
+
+      const updatedUsersPostLike = await updateUsersPostLike(post, this.configService, this.s3);
+
       if (!filesUrl || !filesUrl.length || !shouldDeleteCurrentFiles) {
         const fileRecords = await this.prismaService.file.findMany({
           where: {
@@ -789,6 +837,8 @@ export class PostService {
         );
 
         if (post.parent) {
+          const userUpdatedParentPost = await getUserImage(post.parent.user, this.configService, this.s3);
+
           const postParentFilesFromS3 = await getFiles(
             post.parent.id,
             this.prismaService,
@@ -800,6 +850,12 @@ export class PostService {
             post.userId,
             {
               ...post,
+              likes: updatedUsersPostLike,
+              user: userUpdatedPost,
+              parent: {
+                ...post.parent,
+                user: userUpdatedParentPost,
+              },
               commentsCount,
               filesUrl,
             }
@@ -807,10 +863,13 @@ export class PostService {
 
           return {
             ...post,
+            likes: updatedUsersPostLike,
+            user: userUpdatedPost,
             commentsCount,
             filesUrl,
             parent: {
               ...post.parent,
+              user: userUpdatedParentPost,
               filesUrl: postParentFilesFromS3,
             },
           };
@@ -820,6 +879,8 @@ export class PostService {
           post.userId,
           {
             ...post,
+            likes: updatedUsersPostLike,
+            user: userUpdatedPost,
             commentsCount,
             filesUrl,
           }
@@ -827,6 +888,8 @@ export class PostService {
 
         return {
           ...post,
+          likes: updatedUsersPostLike,
+          user: userUpdatedPost,
           commentsCount,
           filesUrl,
         };
@@ -900,6 +963,8 @@ export class PostService {
         }
 
         if (post.parent) {
+          const userUpdatedParentPost = await getUserImage(post.parent.user, this.configService, this.s3);
+
           const postParentFilesFromS3 = await getFiles(
             post.parent.id,
             this.prismaService,
@@ -911,6 +976,12 @@ export class PostService {
             post.userId,
             {
               ...post,
+              likes: updatedUsersPostLike,
+              user: userUpdatedPost,
+              parent: {
+                ...post.parent,
+                user: userUpdatedParentPost,
+              },
               commentsCount,
               filesUrl: filesUrlS3,
             }
@@ -918,10 +989,13 @@ export class PostService {
 
           return {
             ...post,
+            likes: updatedUsersPostLike,
+            user: userUpdatedPost,
             commentsCount,
             filesUrl,
             parent: {
               ...post.parent,
+              user: userUpdatedParentPost,
               filesUrl: postParentFilesFromS3,
             },
           };
@@ -931,6 +1005,8 @@ export class PostService {
           post.userId,
           {
             ...post,
+            likes: updatedUsersPostLike,
+            user: userUpdatedPost,
             commentsCount,
             filesUrl: filesUrlS3,
           }
@@ -938,6 +1014,8 @@ export class PostService {
 
         return {
           ...post,
+          likes: updatedUsersPostLike,
+          user: userUpdatedPost,
           commentsCount,
           filesUrl: filesUrlS3,
         };
@@ -1127,6 +1205,9 @@ export class PostService {
             },
           },
         });
+
+        const userUpdated = await getUserImage(createdLike.user, this.configService, this.s3);
+
         const notification = await this.notificationService.create({
           type: NotificationType.LIKE,
           senderId: activeUserId,
@@ -1135,11 +1216,20 @@ export class PostService {
           message: 'Like your post',
         });
         this.notificationGateway.sendNotifications(activeUserId, notification);
-        this.postGateway.newLike(activeUserId, createdLike);
+        this.postGateway.newLike(
+          activeUserId,
+          {
+            ...createdLike,
+            user: userUpdated,
+          }
+        );
 
         return {
           message: 'Like successfully',
-          data: createdLike,
+          data: {
+            ...createdLike,
+            user: userUpdated,
+          },
         };
       }
 
@@ -1158,6 +1248,8 @@ export class PostService {
         },
       });
 
+      const userUpdated = await getUserImage(deletedLike.user, this.configService, this.s3);
+
       const notification = await this.notificationService.findByUser(
         activeUserId,
         post.userId,
@@ -1169,11 +1261,20 @@ export class PostService {
         this.notificationGateway.sendNotifications(activeUserId, notification);
       }
 
-      this.postGateway.newLike(activeUserId, deletedLike);
+      this.postGateway.newLike(
+        activeUserId,
+        {
+          ...deletedLike,
+          user: userUpdated,
+        }
+      );
 
       return {
         message: 'Unlike successfully',
-        data: deletedLike,
+        data: {
+          ...deletedLike,
+          user: userUpdated,
+        },
       };
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {

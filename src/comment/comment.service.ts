@@ -31,6 +31,8 @@ import { findFiles } from 'src/utils/helpers/find-files';
 import { deleteObjectS3 } from 'src/utils/helpers/delete-object-s3';
 import { Logger } from '@nestjs/common';
 import { createTagUserNotification } from 'src/utils/helpers/create-tag-user-notification';
+import { getUserImage } from 'src/utils/helpers/get-user-image';
+import { updateUsersCommentLike } from 'src/utils/helpers/update-user-content-like';
 import { Express } from 'express';
 
 @Injectable()
@@ -192,6 +194,8 @@ export class CommentService {
         },
       });
 
+      const userUpdated = await getUserImage(comment.user, this.configService, this.s3);
+
       if (!fileUrl) {
         const notification = await createNotification(
           this.notificationService,
@@ -209,12 +213,14 @@ export class CommentService {
           comment.userId,
           {
             ...comment,
+            user: userUpdated,
             replysCount: comment.replies.length,
           }
         );
 
         return {
           ...comment,
+          user: userUpdated,
           replysCount: comment.replies.length,
         };
       }
@@ -267,12 +273,14 @@ export class CommentService {
           comment.userId,
           {
             ...comment,
+            user: userUpdated,
             replysCount: comment.replies.length,
             fileUrl: fileFromS3[0],
           });
 
         return {
           ...comment,
+          user: userUpdated,
           replysCount: comment.replies.length,
           fileUrl: fileFromS3[0],
         };
@@ -387,6 +395,8 @@ export class CommentService {
         },
       });
 
+      const userUpdated = await getUserImage(comment.user, this.configService, this.s3);
+
       let notification: (Notification & { sender: Omit<User, "passwordHash"> }) | undefined;
 
       if (!fileUrl) {
@@ -406,12 +416,14 @@ export class CommentService {
           comment.userId,
           {
             ...comment,
+            user: userUpdated,
             replysCount: comment.replies.length,
           }
         );
 
         return {
           ...comment,
+          user: userUpdated,
           replysCount: comment.replies.length,
         };
       }
@@ -463,6 +475,7 @@ export class CommentService {
         comment.userId,
         {
           ...comment,
+          user: userUpdated,
           replysCount: comment.replies.length,
           fileUrl: fileFromS3[0],
         }
@@ -470,6 +483,7 @@ export class CommentService {
 
       return {
         ...comment,
+        user: userUpdated,
         replysCount: comment.replies.length,
         fileUrl: fileFromS3[0],
       };
@@ -589,6 +603,8 @@ export class CommentService {
         },
       });
 
+      const userUpdated = await getUserImage(tagComment.user, this.configService, this.s3);
+
       let notification: (Notification & { sender: Omit<User, "passwordHash"> }) | undefined;
 
       if (!fileUrl) {
@@ -608,12 +624,14 @@ export class CommentService {
           tagComment.userId,
           {
             ...tagComment,
+            user: userUpdated,
             replysCount: tagComment.replies.length,
           }
         );
 
         return {
           ...tagComment,
+          user: userUpdated,
           replysCount: tagComment.replies.length,
         };
       }
@@ -665,6 +683,7 @@ export class CommentService {
         tagComment.userId,
         {
           ...tagComment,
+          user: userUpdated,
           replysCount: tagComment.replies.length,
           fileUrl: fileFromS3[0],
         }
@@ -672,6 +691,7 @@ export class CommentService {
 
       return {
         ...tagComment,
+        user: userUpdated,
         replysCount: tagComment.replies.length,
         fileUrl: fileFromS3[0],
       };
@@ -775,6 +795,10 @@ export class CommentService {
 
       const commentsWithFiles = await Promise.all(
         comments.map(async (comment) => {
+          const userUpdatedComment = await getUserImage(comment.user, this.configService, this.s3);
+
+          const updatedUsersCommentLike = await updateUsersCommentLike(comment, this.configService, this.s3);
+
           const filesFromS3 = await getFiles(
             comment.id,
             this.prismaService,
@@ -785,10 +809,16 @@ export class CommentService {
           if (comment.replies.length) {
             return {
               ...comment,
+              user: userUpdatedComment,
+              likes: updatedUsersCommentLike,
               replysCount: comment.replies.length,
               fileUrl: filesFromS3[0],
               replies: await Promise.all(
                 comment.replies.map(async (reply) => {
+                  const userUpdatedReply = await getUserImage(reply.user, this.configService, this.s3);
+
+                  const updatedUsersReplyLike = await updateUsersCommentLike(reply, this.configService, this.s3);
+
                   const replyFilesFromS3 = await getFiles(
                     reply.id,
                     this.prismaService,
@@ -798,6 +828,8 @@ export class CommentService {
 
                   return {
                     ...reply,
+                    user: userUpdatedReply,
+                    likes: updatedUsersReplyLike,
                     fileUrl: replyFilesFromS3[0],
                   };
                 }),
@@ -807,6 +839,8 @@ export class CommentService {
 
           return {
             ...comment,
+            user: userUpdatedComment,
+            likes: updatedUsersCommentLike,
             replysCount: comment.replies.length,
             fileUrl: filesFromS3[0],
           };
@@ -929,6 +963,10 @@ export class CommentService {
         },
       });
 
+      const userUpdatedComment = await getUserImage(comment.user, this.configService, this.s3);
+
+      const updatedUsersCommentLike = await updateUsersCommentLike(comment, this.configService, this.s3);
+
       if (!fileUrl || !shouldDeleteCurrentFile) {
         const fileRecords = await this.prismaService.file.findMany({
           where: {
@@ -960,6 +998,8 @@ export class CommentService {
           comment.userId,
           {
             ...comment,
+            user: userUpdatedComment,
+            likes: updatedUsersCommentLike,
             replysCount: comment.replies.length,
             fileUrl: filesUrl[0],
           }
@@ -967,6 +1007,8 @@ export class CommentService {
 
         return {
           ...comment,
+          user: userUpdatedComment,
+          likes: updatedUsersCommentLike,
           replysCount: comment.replies.length,
           fileUrl: filesUrl[0],
         };
@@ -1037,6 +1079,8 @@ export class CommentService {
           comment.userId,
           {
             ...comment,
+            user: userUpdatedComment,
+            likes: updatedUsersCommentLike,
             replysCount: comment.replies.length,
             fileUrl: fileUrlS3,
           }
@@ -1044,6 +1088,8 @@ export class CommentService {
 
         return {
           ...comment,
+          user: userUpdatedComment,
+          likes: updatedUsersCommentLike,
           replysCount: comment.replies.length,
           fileUrl: fileUrlS3,
         };
@@ -1223,6 +1269,9 @@ export class CommentService {
             },
           },
         });
+
+        const userUpdated = await getUserImage(createdLike.user, this.configService, this.s3);
+
         const notification = await this.notificationService.create({
           type: NotificationType.LIKE,
           senderId: activeUserId,
@@ -1232,11 +1281,17 @@ export class CommentService {
           message: 'Like your comment',
         });
         this.notificationGateway.sendNotifications(activeUserId, notification);
-        this.commentGateway.newLike(activeUserId, createdLike);
+        this.commentGateway.newLike(activeUserId, {
+          ...createdLike,
+          user: userUpdated,
+        });
 
         return {
           message: 'Like successfully',
-          data: createdLike,
+          data: {
+            ...createdLike,
+            user: userUpdated,
+          },
         };
       }
 
@@ -1255,6 +1310,8 @@ export class CommentService {
         },
       });
 
+      const userUpdated = await getUserImage(deletedLike.user, this.configService, this.s3);
+
       const notification = await this.notificationService.findByUser(
         activeUserId,
         comment.userId,
@@ -1267,11 +1324,17 @@ export class CommentService {
         this.notificationGateway.sendNotifications(activeUserId, notification);
       }
 
-      this.commentGateway.newLike(activeUserId, deletedLike);
+      this.commentGateway.newLike(activeUserId, {
+        ...deletedLike,
+        user: userUpdated,
+      });
 
       return {
         message: 'Unlike successfully',
-        data: deletedLike,
+        data: {
+          ...deletedLike,
+          user: userUpdated,
+        },
       };
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {

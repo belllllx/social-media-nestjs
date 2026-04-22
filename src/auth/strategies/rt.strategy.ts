@@ -5,7 +5,6 @@ import { ConfigService } from '@nestjs/config';
 import { Request as ExpressRequest } from 'express';
 import { JwtPayload } from 'src/utils/types';
 import { UserService } from 'src/user/user.service';
-import { Follower, User } from 'generated/prisma';
 
 @Injectable()
 export class RtStrategy extends PassportStrategy(Strategy, 'refresh-token') {
@@ -25,13 +24,7 @@ export class RtStrategy extends PassportStrategy(Strategy, 'refresh-token') {
     });
   }
 
-  validate(payload: JwtPayload<{ id: string }>): Promise<
-    Omit<User, 'passwordHash'> &
-    {
-      followings: (Follower & { following: Omit<User, 'passwordHash'> })[];
-      followers: (Follower & { follower: Omit<User, 'passwordHash'> })[];
-    }
-  > {
+  validate(payload: JwtPayload<{ id: string }>) {
     return this.userService.findById(payload.id);
   }
 }

@@ -34,7 +34,7 @@ interface ServerToClientEvents {
   ) => void;
   deleteComment: (comment: Comment) => void;
   deleteReplyComment: (comment: Comment) => void;
-  newLikeComment: (like: Like) => void;
+  newLikeComment: (like: Like & { user: Omit<User, 'passwordHash'> }) => void;
 }
 
 @WebSocketGateway({
@@ -107,7 +107,7 @@ export class CommentGateway
     }
   }
 
-  newLike(userId: string, like: Like) {
+  newLike(userId: string, like: Like & { user: Omit<User, 'passwordHash'> }) {
     const client = this.clients.get(userId);
     if (client) {
       client.broadcast.emit('newLikeComment', like);

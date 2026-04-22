@@ -23,7 +23,9 @@ import { getObjectS3 } from 'src/utils/helpers/get-object-s3';
 import { getFileNameFromPresignedUrl } from 'src/utils/helpers/get-filename-from-presigned-url';
 import { deleteObjectS3 } from 'src/utils/helpers/delete-object-s3';
 import { EditUserInfoDto } from './dto/edit-user-info.dto';
+import { getUserImage } from 'src/utils/helpers/get-user-image';
 import { Express } from 'express';
+import { updateUserFollower, updateUserFollowing, updateUsersFollower, updateUsersFollowing } from 'src/utils/helpers/update-user-content-like';
 
 @Injectable()
 export class UserService {
@@ -151,7 +153,15 @@ export class UserService {
         throw new NotFoundException(`User id ${id} not found`);
       }
 
-      return user;
+      const userUpdated = await getUserImage(user, this.configService, this.s3);
+      const usersFollowingUpdated = await updateUsersFollowing(user, this.configService, this.s3);
+      const usersFollowerUpdated = await updateUsersFollower(user, this.configService, this.s3);
+
+      return {
+        ...userUpdated,
+        followings: usersFollowingUpdated,
+        followers: usersFollowerUpdated,
+      }
     } catch (error: unknown) {
       if (error instanceof NotFoundException) {
         this.logger.warn(error.message, error.stack);
@@ -378,6 +388,9 @@ export class UserService {
           },
         });
 
+        const userFollowingUpdated = await updateUserFollowing(follower.following, this.configService, this.s3);
+        const userFollowerUpdated = await updateUserFollower(follower.follower, this.configService, this.s3);
+
         const notification = await this.notificationService.create({
           type: NotificationType.FOLLOW,
           senderId: followerId,
@@ -388,7 +401,11 @@ export class UserService {
 
         return {
           status: 'follow',
-          follower,
+          follower: {
+            ...follower,
+            following: userFollowingUpdated,
+            follower: userFollowerUpdated,
+          },
         };
       }
 
@@ -419,6 +436,9 @@ export class UserService {
         },
       });
 
+      const userFollowingUpdated = await updateUserFollowing(follower.following, this.configService, this.s3);
+      const userFollowerUpdated = await updateUserFollower(follower.follower, this.configService, this.s3);
+
       const notification = await this.notificationService.findByUser(
         followerId,
         followingId,
@@ -431,7 +451,11 @@ export class UserService {
 
       return {
         status: 'unfollow',
-        follower,
+        follower: {
+          ...follower,
+          following: userFollowingUpdated,
+          follower: userFollowerUpdated,
+        },
       };
     } catch (error: unknown) {
       if (error instanceof PrismaClientKnownRequestError) {
@@ -475,7 +499,7 @@ export class UserService {
           id: activeUserId,
         },
         data: {
-          profileBackgroundUrl: fileUrl,
+          profileBackgroundUrl: `user-background-image/${newFileName.filename}`,
         },
       });
 
@@ -518,7 +542,7 @@ export class UserService {
           id: activeUserId,
         },
         data: {
-          profileUrl: fileUrl,
+          profileUrl: `user-profile-image/${newFileName.filename}`,
         },
       });
 
