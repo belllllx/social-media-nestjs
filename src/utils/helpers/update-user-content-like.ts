@@ -39,6 +39,37 @@ export function updateUsersCommentLike(
   );
 }
 
+export function updateUsersReplies(
+  comment: Comment & {
+    replies: (Comment & {
+      likes: (Like & { user: Omit<User, 'passwordHash'> })[];
+      user: Omit<User, 'passwordHash'>;
+      replyToUser: Omit<User, 'passwordHash'> | null;
+    })[];
+  },
+  configService: ConfigService,
+  s3: S3Client,
+) {
+  return Promise.all(
+    comment.replies.map(async (reply) => {
+      const userReplyUpdated = await getUserImage(reply.user, configService, s3);
+      return {
+        ...reply,
+        user: userReplyUpdated,
+        likes: await Promise.all(
+          reply.likes.map(async (like) => {
+            const userReplyLikeUpdated = await getUserImage(like.user, configService, s3);
+            return {
+              ...like,
+              user: userReplyLikeUpdated,
+            }
+          }),
+        ),
+      }
+    }),
+  );
+}
+
 export function updateUsersFollowing(
   user: Omit<User, 'passwordHash'> & {
     followings: (Follower & { following: Omit<User, 'passwordHash'> })[];

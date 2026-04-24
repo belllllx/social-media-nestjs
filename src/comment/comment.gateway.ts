@@ -4,7 +4,7 @@ import {
   WebSocketGateway,
 } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
-import { Comment, Like, User } from 'generated/prisma';
+import { Comment, Like, Post, User } from 'generated/prisma';
 import { handleWsConnection } from 'src/utils/helpers/handle-ws-connection';
 import { JwtService } from '@nestjs/jwt';
 import { handleWsDisconnection } from 'src/utils/helpers/handle-ws-disconnection';
@@ -32,8 +32,8 @@ interface ServerToClientEvents {
       replysCount: number;
     },
   ) => void;
-  deleteComment: (comment: Comment) => void;
-  deleteReplyComment: (comment: Comment) => void;
+  deleteComment: (comment: Comment & { post: Post }) => void;
+  deleteReplyComment: (comment: Comment & { post: Post }) => void;
   newLikeComment: (like: Like & { user: Omit<User, 'passwordHash'> }) => void;
 }
 
@@ -45,7 +45,7 @@ interface ServerToClientEvents {
 })
 export class CommentGateway
   implements OnGatewayConnection, OnGatewayDisconnect {
-  constructor(private jwtService: JwtService) {}
+  constructor(private jwtService: JwtService) { }
 
   private clients = new Map<string, Socket<any, ServerToClientEvents>>();
 
@@ -69,6 +69,7 @@ export class CommentGateway
       })
       | null;
       replysCount: number;
+      post: Post;
     },
   ) {
     const client = this.clients.get(userId);
@@ -80,6 +81,11 @@ export class CommentGateway
   updateComment(
     userId: string,
     comment: Comment & {
+      replies: (Comment & {
+        likes: (Like & { user: Omit<User, 'passwordHash'> })[];
+        user: Omit<User, 'passwordHash'>;
+        replyToUser: Omit<User, 'passwordHash'> | null;
+      })[];
       likes: (Like & { user: Omit<User, 'passwordHash'> })[];
       user: Omit<User, 'passwordHash'>;
       parent: (Comment & { user: Omit<User, 'passwordHash'> }) | null;
@@ -93,14 +99,14 @@ export class CommentGateway
     }
   }
 
-  deleteComment(userId: string, comment: Comment) {
+  deleteComment(userId: string, comment: Comment & { post: Post }) {
     const client = this.clients.get(userId);
     if (client) {
       client.broadcast.emit('deleteComment', comment);
     }
   }
 
-  deleteReplyComment(userId: string, comment: Comment) {
+  deleteReplyComment(userId: string, comment: Comment & { post: Post }) {
     const client = this.clients.get(userId);
     if (client) {
       client.broadcast.emit('deleteReplyComment', comment);

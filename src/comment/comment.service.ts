@@ -32,7 +32,7 @@ import { deleteObjectS3 } from 'src/utils/helpers/delete-object-s3';
 import { Logger } from '@nestjs/common';
 import { createTagUserNotification } from 'src/utils/helpers/create-tag-user-notification';
 import { getUserImage } from 'src/utils/helpers/get-user-image';
-import { updateUsersCommentLike } from 'src/utils/helpers/update-user-content-like';
+import { updateUsersCommentLike, updateUsersReplies } from 'src/utils/helpers/update-user-content-like';
 import { Express } from 'express';
 
 @Injectable()
@@ -191,6 +191,7 @@ export class CommentService {
               },
             },
           },
+          post: true,
         },
       });
 
@@ -392,6 +393,7 @@ export class CommentService {
               passwordHash: true,
             },
           },
+          post: true,
         },
       });
 
@@ -600,6 +602,7 @@ export class CommentService {
               passwordHash: true,
             },
           },
+          post: true,
         },
       });
 
@@ -967,6 +970,8 @@ export class CommentService {
 
       const updatedUsersCommentLike = await updateUsersCommentLike(comment, this.configService, this.s3);
 
+      const updatedUsersReplies = await updateUsersReplies(comment, this.configService, this.s3);
+
       if (!fileUrl || !shouldDeleteCurrentFile) {
         const fileRecords = await this.prismaService.file.findMany({
           where: {
@@ -998,6 +1003,7 @@ export class CommentService {
           comment.userId,
           {
             ...comment,
+            replies: updatedUsersReplies,
             user: userUpdatedComment,
             likes: updatedUsersCommentLike,
             replysCount: comment.replies.length,
@@ -1007,6 +1013,7 @@ export class CommentService {
 
         return {
           ...comment,
+          replies: updatedUsersReplies,
           user: userUpdatedComment,
           likes: updatedUsersCommentLike,
           replysCount: comment.replies.length,
@@ -1079,6 +1086,7 @@ export class CommentService {
           comment.userId,
           {
             ...comment,
+            replies: updatedUsersReplies,
             user: userUpdatedComment,
             likes: updatedUsersCommentLike,
             replysCount: comment.replies.length,
@@ -1088,6 +1096,7 @@ export class CommentService {
 
         return {
           ...comment,
+          replies: updatedUsersReplies,
           user: userUpdatedComment,
           likes: updatedUsersCommentLike,
           replysCount: comment.replies.length,
@@ -1204,6 +1213,9 @@ export class CommentService {
       const deletedComment = await this.prismaService.comment.delete({
         where: {
           id: comment.id,
+        },
+        include: {
+          post: true,
         },
       });
 
