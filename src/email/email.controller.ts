@@ -46,11 +46,36 @@ export class EmailController {
     };
   }
 
+  @Post('register/send')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({
+    description: 'Email send successfully',
+    type: CommonResponse,
+  })
+  async sendRegisterEmail(
+    @Body() sendEmailDto: SendEmailDto,
+    @Response({ passthrough: true })
+    res: ExpressResponse,
+  ): Promise<ResponseFromService> {
+    const { result, token } = await this.emailService.sendEmailRegister(
+      {
+        ...sendEmailDto,
+        createUserDto: sendEmailDto.createUserDto,
+      },
+    );
+
+    setCookies('register_token', token, res);
+
+    return {
+      message: `Email send to ${result.accepted[0]} successfully`,
+    };
+  }
+
   @UseGuards(ForgotPasswordAuthGuard)
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({
-    description: 'OTP verified successfully',
+    description: 'Otp verified successfully',
     type: CommonResponse,
   })
   async verifyOtp(

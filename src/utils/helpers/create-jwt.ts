@@ -1,7 +1,7 @@
 import { JwtService } from '@nestjs/jwt';
 
 export function createJwt(
-  payload: Object,
+  payload: Record<string, unknown>,
   secret: string,
   jwtService: JwtService,
 ): Promise<string> {

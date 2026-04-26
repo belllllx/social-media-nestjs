@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsEmail, IsNotEmpty, IsString, ValidateNested } from 'class-validator';
+import { CreateUserWithoutEmailDto } from './create-user-with-out-email.dto';
 
 export class SendEmailDto {
   @ApiProperty()
@@ -7,4 +9,9 @@ export class SendEmailDto {
   @IsNotEmpty()
   @IsEmail()
   email: string;
+
+  @ApiProperty({ type: CreateUserWithoutEmailDto })
+  @ValidateNested()
+  @Type(() => CreateUserWithoutEmailDto)
+  createUserDto: CreateUserWithoutEmailDto;
 }

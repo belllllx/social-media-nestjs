@@ -63,7 +63,6 @@ model User {
   createdAt            DateTime     @default(now()) @map("created_at")
   updatedAt            DateTime     @updatedAt @map("updated_at")
 
-  otp                   Otp?
   posts                 Post[]
   comments              Comment[]      @relation("UserComments")
   repliedComments       Comment[]      @relation("ReplyToUser")
@@ -82,8 +81,6 @@ model Otp {
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-
-  user  User   @relation(fields: [email], references: [email], onDelete: Cascade)
   email String @unique
 
   @@map("otps")

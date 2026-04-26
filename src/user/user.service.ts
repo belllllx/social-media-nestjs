@@ -25,8 +25,8 @@ import { deleteObjectS3 } from 'src/utils/helpers/delete-object-s3';
 import { EditUserInfoDto } from './dto/edit-user-info.dto';
 import { getUserImage } from 'src/utils/helpers/get-user-image';
 import { updateUserFollower, updateUserFollowing, updateUsersFollower, updateUsersFollowing } from 'src/utils/helpers/update-user-content-like';
-import { Express } from 'express';
 import { UserGateway } from './user.gateway';
+import { Express } from 'express';
 
 @Injectable()
 export class UserService {
@@ -98,19 +98,26 @@ export class UserService {
         });
       }
 
-      throw new Error('Invalid input data');
+      throw new BadRequestException('Invalid input data');
     } catch (error: unknown) {
       if (
-        error instanceof PrismaClientKnownRequestError &&
+        error instanceof PrismaClientKnownRequestError 
+        &&
         error.code === 'P2002'
       ) {
-        this.logger.error(error.message, error.stack);
+        this.logger.warn(error.message);
+
         throw new BadRequestException(
           `${formatString(error.meta?.target?.[0])} already exists`,
         );
       }
 
-      this.logger.error(error);
+      if(error instanceof Error){
+        this.logger.error(error.message, error.stack);
+      }else{
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+      
       throw new InternalServerErrorException('Failed to create user');
     }
   }

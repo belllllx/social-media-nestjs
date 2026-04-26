@@ -11,9 +11,12 @@ import { GoogleStrategy } from './strategies/google.strategy';
 import { GithubStrategy } from './strategies/github.strategy';
 import { ResetPasswordStrategy } from './strategies/reset-password.strategy';
 import { ForgotPasswordStrategy } from './strategies/forgot-password.strategy';
+import { RegisterStrategy } from './strategies/register.strategy';
+import { EmailModule } from 'src/email/email.module';
 
 @Module({
   imports: [
+    EmailModule,
     UserModule, 
     PassportModule, 
     JwtModule.register({
@@ -32,6 +35,7 @@ import { ForgotPasswordStrategy } from './strategies/forgot-password.strategy';
     GithubStrategy,
     ResetPasswordStrategy,
     ForgotPasswordStrategy,
+    RegisterStrategy,
   ],
 })
 export class AuthModule {}

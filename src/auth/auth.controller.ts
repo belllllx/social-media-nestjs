@@ -34,12 +34,17 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
 import {
   ISocialUserPayload,
   ITokenObject,
+  JwtPayload,
   ResponseFromService,
 } from 'src/utils/types';
 import { GithubAuthGuard } from './guards/github-auth.guard';
 import { setCookies } from 'src/utils/helpers/set-cookies';
 import { clearCookies } from 'src/utils/helpers/clear-cookies';
 import { ConfigService } from '@nestjs/config';
+import { RegisterAuthGuard } from './guards/register-auth.guard';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { EmailService } from 'src/email/email.service';
+import { CreateUserWithoutEmailDto } from 'src/email/dto/create-user-with-out-email.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -48,6 +53,7 @@ export class AuthController {
   private CLIENT_REDIRECT_SUCCESS_URL: string;
 
   constructor(
+    private emailService: EmailService,
     private authService: AuthService,
     private configService: ConfigService,
   ) {
@@ -95,13 +101,53 @@ export class AuthController {
   })
   async register(
     @Body() createUserDto: CreateUserDto,
-  ): Promise<ResponseFromService<Omit<User, 'passwordHash'>>> {
-    const user = await this.authService.register(createUserDto);
+    @Response({ passthrough: true })
+    res: ExpressResponse,
+  ): Promise<ResponseFromService> {
+    const { token, result } = await this.authService.register(createUserDto);
+
+    setCookies('register_token', token, res);
 
     return {
-      message: 'User created successfully',
-      data: user,
+      message: `Email send to ${result.accepted[0]} successfully`,
     };
+  }
+
+  @UseGuards(RegisterAuthGuard)
+  @Post('register/verify-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized',
+    type: CommonResponse,
+  })
+  @ApiOkResponse({
+    description: 'Otp verified successfully',
+    type: CommonResponse,
+  })
+  async verifyOtp(
+    @Body() verifyOtpDto: VerifyOtpDto,
+    @Request() req: ExpressRequest,
+    @Response({ passthrough: true })
+    res: ExpressResponse,
+  ): Promise<ResponseFromService> {
+    const payload = req.user as JwtPayload<{
+      email: string;
+      createUserDto: CreateUserWithoutEmailDto;
+    }>;
+
+    const { message } = await this.emailService.verifyOtpRegister(
+      {
+        ...verifyOtpDto,
+        email: payload.email,
+      },
+      payload.createUserDto,
+    );
+
+    res.clearCookie('register_token');
+
+    return {
+      message,
+    }
   }
 
   @UseGuards(AtAuthGuard)
@@ -128,7 +174,7 @@ export class AuthController {
       followings: (Follower & { following: Omit<User, 'passwordHash'> })[];
       followers: (Follower & { follower: Omit<User, 'passwordHash'> })[];
     };
-    
+
     return {
       message: 'User profile retrieved successfully',
       data: user,

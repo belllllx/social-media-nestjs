@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, HttpException, Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from 'src/user/user.service';
@@ -8,10 +8,14 @@ import { CreateSocialUserDto, ISocialUserPayload } from 'src/utils/types';
 import { createJwt } from 'src/utils/helpers/create-jwt';
 import { createJwtUser } from 'src/utils/helpers/create-jwt-user';
 import * as bcrypt from 'bcrypt';
+import { EmailService } from 'src/email/email.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
+    private emailService: EmailService,
     private userService: UserService,
     private jwtService: JwtService,
     private configService: ConfigService,
@@ -39,8 +43,38 @@ export class AuthService {
     return createJwtUser(user, this.jwtService, this.configService);
   }
 
-  register(createUserDto: CreateUserDto) {
-    return this.userService.createUser(createUserDto);
+  async register(createUserDto: CreateUserDto) {
+    try {
+      const userExistWithUsername = await this.userService.findOne(createUserDto.username);
+      const userExistWithEmail = await this.userService.findByEmail(createUserDto.email);
+
+      if(userExistWithUsername){
+        throw new BadRequestException("Username is already exist");
+      }
+      if(userExistWithEmail){
+        throw new BadRequestException("Email is already exist");
+      }
+
+
+      const { result, token } = await this.emailService.sendEmailRegister(
+        { 
+          email: createUserDto.email,
+          createUserDto, 
+        },
+      );
+
+      return {
+        token,
+        result,
+      }
+    } catch (error: unknown) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      this.logger.error(error);
+      throw error;
+    }
   }
 
   refreshToken(user: Omit<User, 'passwordHash'> &
