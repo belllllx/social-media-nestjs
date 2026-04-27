@@ -1,4 +1,10 @@
-import { BadRequestException, HttpException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  Injectable,
+  InternalServerErrorException,
+  Logger
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from 'src/user/user.service';
@@ -25,22 +31,46 @@ export class AuthService {
     username: string,
     password: string,
   ) {
-    const user = await this.userService.findOne(username);
-    if (
-      user &&
-      user.providerType === ProviderType.LOCAL &&
-      user.passwordHash &&
-      (await bcrypt.compare(password, user.passwordHash))
-    ) {
-      const { passwordHash, ...result } = user;
-      return result;
-    }
+    try {
+      const user = await this.userService.findOne(username);
+      if (
+        user &&
+        user.providerType === ProviderType.LOCAL &&
+        user.passwordHash &&
+        (await bcrypt.compare(password, user.passwordHash))
+      ) {
+        const { passwordHash, ...result } = user;
+        return result;
+      }
 
-    return null;
+      return null;
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        this.logger.error(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      throw new InternalServerErrorException('Cannot validate user');
+    }
   }
 
   login(user: Omit<User, 'passwordHash'>) {
-    return createJwtUser(user, this.jwtService, this.configService);
+    try {
+      return createJwtUser(
+        user,
+        this.jwtService,
+        this.configService
+      );
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        this.logger.error(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      throw new InternalServerErrorException('Cannot login');
+    }
   }
 
   async register(createUserDto: CreateUserDto) {
@@ -48,18 +78,18 @@ export class AuthService {
       const userExistWithUsername = await this.userService.findOne(createUserDto.username);
       const userExistWithEmail = await this.userService.findByEmail(createUserDto.email);
 
-      if(userExistWithUsername){
+      if (userExistWithUsername) {
         throw new BadRequestException("Username is already exist");
       }
-      if(userExistWithEmail){
+      if (userExistWithEmail) {
         throw new BadRequestException("Email is already exist");
       }
 
 
       const { result, token } = await this.emailService.sendEmailRegister(
-        { 
+        {
           email: createUserDto.email,
-          createUserDto, 
+          createUserDto,
         },
       );
 
@@ -68,107 +98,134 @@ export class AuthService {
         result,
       }
     } catch (error: unknown) {
+      if (error instanceof Error) {
+        this.logger.error(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
       if (error instanceof HttpException) {
         throw error;
       }
 
-      this.logger.error(error);
-      throw error;
+      throw new InternalServerErrorException('Cannot register');
     }
   }
 
-  refreshToken(user: Omit<User, 'passwordHash'> &
-  {
-    followings: (Follower & { following: Omit<User, 'passwordHash'> })[];
-    followers: (Follower & { follower: Omit<User, 'passwordHash'> })[];
-  }) {
-    return createJwtUser(user, this.jwtService, this.configService);
+  refreshToken(
+    user: Omit<User, 'passwordHash'> &
+    {
+      followings: (Follower & { following: Omit<User, 'passwordHash'> })[];
+      followers: (Follower & { follower: Omit<User, 'passwordHash'> })[];
+    }
+  ) {
+    try {
+      return createJwtUser(user, this.jwtService, this.configService);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        this.logger.error(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      throw new InternalServerErrorException('Cannot refresh token');
+    }
   }
 
   async socialLogin(user: ISocialUserPayload, providerType: ProviderType) {
-    const userExist = await this.userService.findByEmail(user.email);
+    try {
+      const userExist = await this.userService.findByEmail(user.email);
 
-    const CLIENT_URL = this.configService.get<string>('CLIENT_URL');
-    const CLIENT_REDIRECT_ERROR_PATH = this.configService.get<string>(
-      'CLIENT_REDIRECT_ERROR_PATH',
-    );
-    const CLIENT_REDIRECT_ERROR_URL = `${CLIENT_URL}${CLIENT_REDIRECT_ERROR_PATH}`;
-    const msg = 'email already registered with a different provider';
+      const CLIENT_URL = this.configService.get<string>('CLIENT_URL');
+      const CLIENT_REDIRECT_ERROR_PATH = this.configService.get<string>(
+        'CLIENT_REDIRECT_ERROR_PATH',
+      );
+      const CLIENT_REDIRECT_ERROR_URL = `${CLIENT_URL}${CLIENT_REDIRECT_ERROR_PATH}`;
+      const msg = 'email already registered with a different provider';
 
-    // กรณีที่ผู้ใช้มีอยู่แล้ว
-    if (providerType === ProviderType.GOOGLE && userExist) {
-      //กรณี provider ไม่ตรง
-      if (userExist.providerType !== ProviderType.GOOGLE) {
-        const token = await createJwt(
-          {
-            socialAuthVerified: true,
-          },
-          this.configService.get<string>('SOCIAL_LOGIN_ERROR_SECRET')!,
+      // กรณีที่ผู้ใช้มีอยู่แล้ว
+      if (providerType === ProviderType.GOOGLE && userExist) {
+        //กรณี provider ไม่ตรง
+        if (userExist.providerType !== ProviderType.GOOGLE) {
+          const token = await createJwt(
+            {
+              socialAuthVerified: true,
+            },
+            this.configService.get<string>('SOCIAL_LOGIN_ERROR_SECRET')!,
+            this.jwtService,
+          );
+          return {
+            success: false,
+            url: `${CLIENT_REDIRECT_ERROR_URL}?message=${encodeURIComponent(msg)}&error_token=${token}`,
+            token: null,
+          };
+        }
+
+        const token = await createJwtUser(
+          userExist,
           this.jwtService,
+          this.configService,
         );
         return {
-          success: false,
-          url: `${CLIENT_REDIRECT_ERROR_URL}?message=${encodeURIComponent(msg)}&error_token=${token}`,
-          token: null,
+          success: true,
+          token,
+          url: null,
         };
-      }
+      } else if (providerType === ProviderType.GITHUB && userExist) {
+        //กรณี provider ไม่ตรง
+        if (userExist.providerType !== ProviderType.GITHUB) {
+          const token = await createJwt(
+            {
+              socialAuthVerified: true,
+            },
+            this.configService.get<string>('SOCIAL_LOGIN_ERROR_SECRET')!,
+            this.jwtService,
+          );
+          return {
+            success: false,
+            url: `${CLIENT_REDIRECT_ERROR_URL}?message=${encodeURIComponent(msg)}&error_token=${token}`,
+            token: null,
+          };
+        }
 
-      const token = await createJwtUser(
-        userExist,
-        this.jwtService,
-        this.configService,
-      );
-      return {
-        success: true,
-        token,
-        url: null,
-      };
-    } else if (providerType === ProviderType.GITHUB && userExist) {
-      //กรณี provider ไม่ตรง
-      if (userExist.providerType !== ProviderType.GITHUB) {
-        const token = await createJwt(
-          {
-            socialAuthVerified: true,
-          },
-          this.configService.get<string>('SOCIAL_LOGIN_ERROR_SECRET')!,
+        const token = await createJwtUser(
+          userExist,
           this.jwtService,
+          this.configService,
         );
         return {
-          success: false,
-          url: `${CLIENT_REDIRECT_ERROR_URL}?message=${encodeURIComponent(msg)}&error_token=${token}`,
-          token: null,
+          success: true,
+          token,
+          url: null,
+        };
+      } else {
+        // กรณีที่ผู้ใช้ยังไม่มีในระบบ
+        const createSocialUserDto: CreateSocialUserDto = {
+          fullname: user.name,
+          email: user.email,
+          providerType,
+          profileUrl: user.avatar,
+        };
+        const userData = await this.userService.createUser(createSocialUserDto);
+        const token = await createJwtUser(
+          userData,
+          this.jwtService,
+          this.configService,
+        );
+        return {
+          success: true,
+          token,
+          url: null,
         };
       }
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        this.logger.error(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
 
-      const token = await createJwtUser(
-        userExist,
-        this.jwtService,
-        this.configService,
-      );
-      return {
-        success: true,
-        token,
-        url: null,
-      };
-    } else {
-      // กรณีที่ผู้ใช้ยังไม่มีในระบบ
-      const createSocialUserDto: CreateSocialUserDto = {
-        fullname: user.name,
-        email: user.email,
-        providerType,
-        profileUrl: user.avatar,
-      };
-      const userData = await this.userService.createUser(createSocialUserDto);
-      const token = await createJwtUser(
-        userData,
-        this.jwtService,
-        this.configService,
-      );
-      return {
-        success: true,
-        token,
-        url: null,
-      };
+      throw new InternalServerErrorException('Cannot login social');
     }
   }
 }

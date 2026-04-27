@@ -1,11 +1,11 @@
 import {
+  HttpException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
-import { PrismaClientKnownRequestError } from 'generated/prisma/runtime/library';
 import { Notification, NotificationType, User } from 'generated/prisma';
 import { Logger } from '@nestjs/common';
 import { getUserImage } from 'src/utils/helpers/get-user-image';
@@ -54,13 +54,13 @@ export class NotificationService {
         sender: userUpdated,
       }
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(error.message);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot create notification');
     }
   }
 
@@ -96,13 +96,13 @@ export class NotificationService {
 
       return updatedNotificationsWithSender;
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(error.message);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot create notifications');
     }
   }
 
@@ -111,54 +111,64 @@ export class NotificationService {
     cursor?: string,
     limit: number = 5,
   ) {
-    const notifies = await this.prismaService.notification.findMany({
-      where: {
-        senderId: {
-          not: {
-            equals: activeUserId,
+    try {
+      const notifies = await this.prismaService.notification.findMany({
+        where: {
+          senderId: {
+            not: {
+              equals: activeUserId,
+            },
+          },
+          receiverId: activeUserId,
+        },
+        take: limit + 1,
+        cursor: cursor
+          ? {
+            id: cursor,
+          }
+          : undefined,
+        include: {
+          sender: {
+            omit: {
+              passwordHash: true,
+            },
           },
         },
-        receiverId: activeUserId,
-      },
-      take: limit + 1,
-      cursor: cursor
-        ? {
-          id: cursor,
-        }
-        : undefined,
-      include: {
-        sender: {
-          omit: {
-            passwordHash: true,
-          },
+        orderBy: {
+          createdAt: 'desc',
         },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+      });
 
-    const updatedNotifies = await Promise.all(
-      notifies.map(async (notify) => {
-        const userUpdated = await getUserImage(notify.sender, this.configService, this.s3);
-        return {
-          ...notify,
-          sender: userUpdated,
-        }
-      }),
-    );
+      const updatedNotifies = await Promise.all(
+        notifies.map(async (notify) => {
+          const userUpdated = await getUserImage(notify.sender, this.configService, this.s3);
+          return {
+            ...notify,
+            sender: userUpdated,
+          }
+        }),
+      );
 
-    let nextCursor: string | null = null;
+      let nextCursor: string | null = null;
 
-    if (notifies.length > limit) {
-      const nextItem = notifies.pop();
-      nextCursor = nextItem!.id;
+      if (notifies.length > limit) {
+        const nextItem = notifies.pop();
+        nextCursor = nextItem!.id;
+      }
+
+      return {
+        notifies: updatedNotifies,
+        nextCursor,
+      };
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        this.logger.error(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      throw new InternalServerErrorException('Cannot find notifications pagination');
     }
-
-    return {
-      notifies: updatedNotifies,
-      nextCursor,
-    };
   }
 
   async updateToRead(notificationId: string) {
@@ -196,18 +206,17 @@ export class NotificationService {
         sender: userUpdated,
       }
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(
-          'Error cannot update notification something went wrong',
-        );
-      } else if (error instanceof NotFoundException) {
-        this.logger.warn(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      if (error instanceof HttpException) {
         throw error;
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot read notification');
     }
   }
 
@@ -246,16 +255,13 @@ export class NotificationService {
 
       return updatedNotifies;
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(
-          error,
-          'Error something went wrong',
-        );
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot find notifications');
     }
   }
 
@@ -314,16 +320,13 @@ export class NotificationService {
 
       return notification;
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(
-          error,
-          'Error something went wrong',
-        );
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot find notification by user');
     }
   }
 
@@ -355,16 +358,13 @@ export class NotificationService {
         ),
       );
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(
-          error,
-          'Error something went wrong',
-        );
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot delete notification');
     }
   }
 }

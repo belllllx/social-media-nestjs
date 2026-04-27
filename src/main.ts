@@ -12,7 +12,7 @@ import * as cookieParser from 'cookie-parser';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: new ConsoleLogger({
-      logLevels: ['log', 'warn', 'error'],
+      logLevels: ['debug', 'log', 'warn', 'error'],
     }),
   });
 

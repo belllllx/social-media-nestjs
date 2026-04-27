@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -19,7 +20,6 @@ import * as nodemailer from 'nodemailer';
 import * as bcrypt from 'bcrypt';
 import SMTPTransport from 'nodemailer/lib/smtp-transport';
 import { Logger } from '@nestjs/common';
-import { CreateUserDto } from 'src/auth/dto/create-user.dto';
 import { CreateUserWithoutEmailDto } from './dto/create-user-with-out-email.dto';
 
 @Injectable()
@@ -110,20 +110,25 @@ export class EmailService {
       };
     } catch (error: unknown) {
       if (
-        error instanceof PrismaClientKnownRequestError &&
+        error instanceof PrismaClientKnownRequestError
+        &&
         error.code === 'P2002'
       ) {
-        this.logger.error(error.message, error.stack);
+        this.logger.warn(error.message);
+
         throw new BadRequestException('Otp already exist in your email');
-      } else if (
-        error instanceof BadRequestException ||
-        error instanceof NotFoundException
-      ) {
-        this.logger.warn(error.message, error.stack);
+      }
+
+      if (error instanceof Error) {
+        this.logger.error(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      if (error instanceof HttpException) {
         throw error;
       }
 
-      this.logger.error(error);
       throw new InternalServerErrorException('Failed to send email');
     }
   }
@@ -183,20 +188,36 @@ export class EmailService {
       };
     } catch (error: unknown) {
       if (
-        error instanceof PrismaClientKnownRequestError &&
+        error instanceof PrismaClientKnownRequestError
+        &&
         error.code === 'P2002'
       ) {
-        this.logger.error(error.message, error.stack);
+        this.logger.warn(error.message);
+
         throw new BadRequestException('Otp already exist in your email');
-      } else if (
-        error instanceof NotFoundException
-      ) {
-        this.logger.warn(error.message, error.stack);
-        throw error;
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException('Failed to send email');
+      if (
+        error instanceof PrismaClientKnownRequestError
+        &&
+        error.code === 'P2000'
+      ) {
+        this.logger.warn(error.message);
+
+        if (email && email.length > 30) {
+          throw new BadRequestException("Email field is too long");
+        }
+
+        throw new BadRequestException("Some field is too long");
+      }
+
+      if (error instanceof Error) {
+        this.logger.error(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      throw new InternalServerErrorException('Failed to send email register');
     }
   }
 
@@ -207,14 +228,21 @@ export class EmailService {
       });
     } catch (error: unknown) {
       if (
-        error instanceof PrismaClientKnownRequestError &&
+        error instanceof PrismaClientKnownRequestError
+        &&
         error.code === 'P2025'
       ) {
-        this.logger.error(error.message, error.stack);
+        this.logger.warn(error.message);
+
         throw new NotFoundException(`OTP for email ${email} not found`);
       }
 
-      this.logger.error(error);
+      if (error instanceof Error) {
+        this.logger.error(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
       throw new InternalServerErrorException('Failed to delete OTP');
     }
   }
@@ -256,15 +284,16 @@ export class EmailService {
 
       return token;
     } catch (error: unknown) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
-        this.logger.warn(error.message, error.stack);
+      if (error instanceof Error) {
+        this.logger.error(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      if (error instanceof HttpException) {
         throw error;
       }
 
-      this.logger.error(error);
       throw new InternalServerErrorException('Failed to verify otp');
     }
   }
@@ -274,6 +303,8 @@ export class EmailService {
     createUserDto: CreateUserWithoutEmailDto,
   ) {
     const { email, otp } = verifyOtpDto;
+    const { fullname, username } = createUserDto;
+
     try {
       const otpRecord = await this.prismaService.otp.findFirst({
         where: {
@@ -308,15 +339,38 @@ export class EmailService {
       }
     } catch (error: unknown) {
       if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
+        error instanceof PrismaClientKnownRequestError
+        && 
+        error.code === 'P2000'
       ) {
-        this.logger.warn(error.message, error.stack);
+        this.logger.warn(error.message);
+
+        if (fullname && fullname.length > 30) {
+          throw new BadRequestException("Fullname field is too long");
+        }
+
+        if (username && username.length > 15) {
+          throw new BadRequestException("Username field is too long");
+        }
+
+        if (email && email.length > 30) {
+          throw new BadRequestException("Email field is too long");
+        }
+
+        throw new BadRequestException("Some field is too long");
+      }
+
+      if (error instanceof Error) {
+        this.logger.error(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      if (error instanceof HttpException) {
         throw error;
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException('Failed to verify otp');
+      throw new InternalServerErrorException('Failed to verify otp register');
     }
   }
 }

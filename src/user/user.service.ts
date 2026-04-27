@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -24,7 +25,12 @@ import { getFileNameFromPresignedUrl } from 'src/utils/helpers/get-filename-from
 import { deleteObjectS3 } from 'src/utils/helpers/delete-object-s3';
 import { EditUserInfoDto } from './dto/edit-user-info.dto';
 import { getUserImage } from 'src/utils/helpers/get-user-image';
-import { updateUserFollower, updateUserFollowing, updateUsersFollower, updateUsersFollowing } from 'src/utils/helpers/update-user-content-like';
+import {
+  updateUserFollower,
+  updateUserFollowing,
+  updateUsersFollower,
+  updateUsersFollowing
+} from 'src/utils/helpers/update-user-content-like';
 import { UserGateway } from './user.gateway';
 import { Express } from 'express';
 
@@ -101,7 +107,7 @@ export class UserService {
       throw new BadRequestException('Invalid input data');
     } catch (error: unknown) {
       if (
-        error instanceof PrismaClientKnownRequestError 
+        error instanceof PrismaClientKnownRequestError
         &&
         error.code === 'P2002'
       ) {
@@ -112,12 +118,38 @@ export class UserService {
         );
       }
 
-      if(error instanceof Error){
+      if (
+        error instanceof PrismaClientKnownRequestError
+        &&
+        error.code === 'P2000'
+      ) {
+        this.logger.warn(error.message);
+
+        if (fullname && fullname.length > 30) {
+          throw new BadRequestException('Fullname field is too long');
+        }
+
+        if (username && username.length > 15) {
+          throw new BadRequestException('Username field is too long');
+        }
+
+        if (email && email.length > 30) {
+          throw new BadRequestException('Email field is too long');
+        }
+
+        throw new BadRequestException('Some field is too long');
+      }
+
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-      }else{
+      } else {
         this.logger.error('Unknown error', JSON.stringify(error));
       }
-      
+
+      if(error instanceof HttpException){
+        throw error;
+      }
+
       throw new InternalServerErrorException('Failed to create user');
     }
   }
@@ -172,12 +204,16 @@ export class UserService {
         followers: usersFollowerUpdated,
       }
     } catch (error: unknown) {
-      if (error instanceof NotFoundException) {
-        this.logger.warn(error.message, error.stack);
+      if (error instanceof Error) {
+        this.logger.error(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      if(error instanceof HttpException){
         throw error;
       }
 
-      this.logger.error(error);
       throw new InternalServerErrorException('Error cannot find user');
     }
   }
@@ -188,8 +224,8 @@ export class UserService {
       throw new BadRequestException('Passwords do not match');
     }
 
-    const passwordHash = await hashSecret(confirmPassword);
     try {
+      const passwordHash = await hashSecret(confirmPassword);
       await this.prismaService.user.update({
         where: {
           email,
@@ -200,17 +236,25 @@ export class UserService {
       });
     } catch (error: unknown) {
       if (
-        error instanceof PrismaClientKnownRequestError &&
+        error instanceof PrismaClientKnownRequestError
+        &&
         error.code === 'P2025'
       ) {
-        this.logger.error(error.message, error.stack);
+        this.logger.warn(error.message);
+
         throw new NotFoundException('User not found');
-      } else if (error instanceof BadRequestException) {
-        this.logger.warn(error.message, error.stack);
+      }
+
+      if (error instanceof Error) {
+        this.logger.error(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      if(error instanceof HttpException){
         throw error;
       }
 
-      this.logger.error(error);
       throw new InternalServerErrorException('Failed to reset password');
     }
   }
@@ -232,45 +276,55 @@ export class UserService {
     cursor?: string,
     limit: number = 5,
   ) {
-    const users = await this.prismaService.user.findMany({
-      where: {
-        fullname: {
-          contains: query,
-          mode: 'insensitive',
+    try {
+      const users = await this.prismaService.user.findMany({
+        where: {
+          fullname: {
+            contains: query,
+            mode: 'insensitive',
+          },
+          id: {
+            not: activeUserId,
+          },
         },
-        id: {
-          not: activeUserId,
+        take: limit + 1,
+        cursor: cursor
+          ? {
+            id: cursor,
+          }
+          : undefined,
+        omit: {
+          passwordHash: true,
         },
-      },
-      take: limit + 1,
-      cursor: cursor
-        ? {
-          id: cursor,
-        }
-        : undefined,
-      omit: {
-        passwordHash: true,
-      },
-    });
+      });
 
-    const updatedUsers = await Promise.all(
-      users.map(async (user) => {
-        const userUpdated = await getUserImage(user, this.configService, this.s3);
-        return userUpdated;
-      }),
-    );
+      const updatedUsers = await Promise.all(
+        users.map(async (user) => {
+          const userUpdated = await getUserImage(user, this.configService, this.s3);
+          return userUpdated;
+        }),
+      );
 
-    let nextCursor: string | null = null;
+      let nextCursor: string | null = null;
 
-    if (users.length > limit) {
-      const nextItem = users.pop();
-      nextCursor = nextItem!.id;
+      if (users.length > limit) {
+        const nextItem = users.pop();
+        nextCursor = nextItem!.id;
+      }
+
+      return {
+        users: updatedUsers,
+        nextCursor,
+      };
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        this.logger.error(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      throw new InternalServerErrorException('Cannot find user by fullname');
     }
-
-    return {
-      users: updatedUsers,
-      nextCursor,
-    };
   }
 
   async findMany(activeUserId: string, cursor?: string, limit: number = 5) {
@@ -350,19 +404,17 @@ export class UserService {
         nextCursor,
       };
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(
-          error,
-          'Error something went wrong',
-        );
-      } else if (error instanceof NotFoundException) {
-        this.logger.warn(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      if(error instanceof HttpException){
         throw error;
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot find users');
     }
   }
 
@@ -502,19 +554,17 @@ export class UserService {
         },
       };
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(
-          error,
-          'Error something went wrong',
-        );
-      } else if (error instanceof NotFoundException) {
-        this.logger.warn(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      if(error instanceof HttpException){
         throw error;
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot follow or unfollow user');
     }
   }
 
@@ -551,13 +601,13 @@ export class UserService {
         fileUrl,
       }
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(error.message);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot edit user background');
     }
   }
 
@@ -594,13 +644,13 @@ export class UserService {
         fileUrl,
       }
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(error.message);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot edit user profile');
     }
   }
 
@@ -627,13 +677,13 @@ export class UserService {
         }),
       ]);
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(error.message);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot delete user background');
     }
   }
 
@@ -660,20 +710,20 @@ export class UserService {
         }),
       ]);
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(error.message);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot delete user profile');
     }
   }
 
   async editUserInfo(editUserInfoDto: EditUserInfoDto & { activeUserId: string; }) {
-    try {
-      const { activeUserId, fullname, dateOfBirth, info } = editUserInfoDto;
+    const { activeUserId, fullname, dateOfBirth, info } = editUserInfoDto;
 
+    try {
       await this.findById(activeUserId);
       const user = await this.prismaService.user.update({
         where: {
@@ -695,14 +745,39 @@ export class UserService {
     } catch (error: unknown) {
       if (
         error instanceof PrismaClientKnownRequestError
-        && error.code === "P2002"
+        &&
+        error.code === 'P2002'
       ) {
         this.logger.warn(error.message, error.stack);
-        throw new BadRequestException("Fullname already exists");
+
+        throw new BadRequestException('Fullname already exists');
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      if (
+        error instanceof PrismaClientKnownRequestError
+        &&
+        error.code === 'P2000'
+      ) {
+        this.logger.warn(error.message);
+
+        if (fullname && fullname.length > 30) {
+          throw new BadRequestException('Fullname field is too long');
+        }
+
+        if (info && info.length > 30) {
+          throw new BadRequestException('Info field is too long');
+        }
+
+        throw new BadRequestException('Some field is too long');
+      }
+
+      if (error instanceof Error) {
+        this.logger.error(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      throw new InternalServerErrorException('Cannot edit user info');
     }
   }
 }

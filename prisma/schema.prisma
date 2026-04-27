@@ -50,14 +50,14 @@ enum NotificationType {
 
 model User {
   id                   String       @id @default(uuid())
-  fullname             String       @unique
-  username             String?      @unique
-  email                String       @unique
+  fullname             String       @unique @db.VarChar(30)
+  username             String?      @unique @db.VarChar(15)
+  email                String       @unique @db.VarChar(30)
   passwordHash         String?      @map("password_hash")
   dateOfBirth          DateTime?    @map("date_of_birth")
   profileUrl           String?      @map("profile_url")
   profileBackgroundUrl String?      @map("profile_background_url")
-  info                 String?
+  info                 String?      @db.VarChar(30)
   role                 Role         @default(USER)
   providerType         ProviderType @default(LOCAL) @map("provider_type")
   createdAt            DateTime     @default(now()) @map("created_at")
@@ -81,7 +81,7 @@ model Otp {
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  email String @unique
+  email     String   @unique @db.VarChar(30)
 
   @@map("otps")
 }

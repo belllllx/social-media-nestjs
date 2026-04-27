@@ -1,4 +1,3 @@
-
 import {
   Injectable,
   NestInterceptor,
@@ -20,7 +19,7 @@ export class ErrorsInterceptor implements NestInterceptor {
           if(err instanceof HttpException){
             return throwError(() => err);
           }
-          return throwError(() => new InternalServerErrorException());
+          return throwError(() => new InternalServerErrorException('Something went wrong'));
         }),
       );
   }

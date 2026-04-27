@@ -1,6 +1,7 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import {
   BadRequestException,
+  HttpException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -17,11 +18,15 @@ import { getFileDirFromFileMulter } from 'src/utils/helpers/get-file-dir-from-fi
 import { putObjectS3 } from 'src/utils/helpers/put-object-s3';
 import { getObjectS3 } from 'src/utils/helpers/get-object-s3';
 import { FileDir } from 'src/utils/types';
-import { ContentType, NotificationType, Notification, User } from 'generated/prisma';
+import {
+  ContentType,
+  NotificationType,
+  Notification,
+  User
+} from 'generated/prisma';
 import { getFileNameFromPresignedUrl } from 'src/utils/helpers/get-filename-from-presigned-url';
 import { getFileDirFromPresignedUrl } from 'src/utils/helpers/get-file-dir-from-presigned-url';
 import { deleteFileFromS3 } from 'src/utils/helpers/delete-file-from-s3';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { getFiles } from 'src/utils/helpers/get-files';
 import { createNotification } from 'src/utils/helpers/create-notification';
@@ -90,13 +95,13 @@ export class CommentService {
         fileUrl,
       };
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(error.message);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot create comment file');
     }
   }
 
@@ -125,16 +130,17 @@ export class CommentService {
         deleteFileFromS3(file, this.configService, this.s3),
       ]);
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(error.message);
-      } else if (error instanceof NotFoundException) {
-        this.logger.warn(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      if (error instanceof HttpException) {
         throw error;
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot delete comment file');
     }
   }
 
@@ -289,19 +295,17 @@ export class CommentService {
 
       throw new BadRequestException('Cannot create comment');
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(error.message);
-      } else if (
-        error instanceof BadRequestException ||
-        error instanceof NotFoundException
-      ) {
-        this.logger.warn(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      if (error instanceof HttpException) {
         throw error;
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot create comment');
     }
   }
 
@@ -490,16 +494,17 @@ export class CommentService {
         fileUrl: fileFromS3[0],
       };
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(error.message);
-      } else if (error instanceof NotFoundException) {
-        this.logger.warn(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      if (error instanceof HttpException) {
         throw error;
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot create reply comment');
     }
   }
 
@@ -699,16 +704,17 @@ export class CommentService {
         fileUrl: fileFromS3[0],
       };
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(error.message);
-      } else if (error instanceof NotFoundException) {
-        this.logger.warn(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      if (error instanceof HttpException) {
         throw error;
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot create tag user comment');
     }
   }
 
@@ -862,16 +868,17 @@ export class CommentService {
         nextCursor,
       };
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(error.message);
-      } else if (error instanceof NotFoundException) {
-        this.logger.warn(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      if (error instanceof HttpException) {
         throw error;
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot find comments');
     }
   }
 
@@ -1106,20 +1113,17 @@ export class CommentService {
 
       throw new UnprocessableEntityException('Error cannot update post');
     } catch (error) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(error.message);
-      } else if (
-        error instanceof BadRequestException ||
-        error instanceof NotFoundException ||
-        error instanceof UnprocessableEntityException
-      ) {
-        this.logger.warn(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      if (error instanceof HttpException) {
         throw error;
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot update comment');
     }
   }
 
@@ -1227,20 +1231,25 @@ export class CommentService {
 
       return deletedComment;
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(error.message);
-      } else if (error instanceof NotFoundException) {
-        this.logger.warn(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      if (error instanceof HttpException) {
         throw error;
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot delete comment');
     }
   }
 
-  async like(activeUserId: string, postId: string, commentId: string) {
+  async like(
+    activeUserId: string, 
+    postId: string, 
+    commentId: string
+  ) {
     try {
       await this.userService.findById(activeUserId);
       const post = await this.prismaService.post.findUnique({
@@ -1349,16 +1358,17 @@ export class CommentService {
         },
       };
     } catch (error: unknown) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Error) {
         this.logger.error(error.message, error.stack);
-        throw new InternalServerErrorException(error.message);
-      } else if (error instanceof NotFoundException) {
-        this.logger.warn(error.message, error.stack);
+      } else {
+        this.logger.error('Unknown error', JSON.stringify(error));
+      }
+
+      if (error instanceof HttpException) {
         throw error;
       }
 
-      this.logger.error(error);
-      throw new InternalServerErrorException(error, 'Unexpected error');
+      throw new InternalServerErrorException('Cannot like or unlike comment');
     }
   }
 }

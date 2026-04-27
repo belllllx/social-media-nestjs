@@ -33,7 +33,6 @@ import { RtAuthGuard } from './guards/rt-auth.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import {
   ISocialUserPayload,
-  ITokenObject,
   JwtPayload,
   ResponseFromService,
 } from 'src/utils/types';
@@ -89,6 +88,7 @@ export class AuthController {
       [accessToken, refreshToken],
       res,
     );
+
     return {
       message: 'Login successfully',
     };
@@ -162,13 +162,7 @@ export class AuthController {
   })
   getProfile(
     @Request() req: ExpressRequest,
-  ): ResponseFromService<
-    Omit<User, 'passwordHash'> &
-    {
-      followings: (Follower & { following: Omit<User, 'passwordHash'> })[];
-      followers: (Follower & { follower: Omit<User, 'passwordHash'> })[];
-    }
-  > {
+  ): ResponseFromService {
     const user = req.user as Omit<User, 'passwordHash'> &
     {
       followings: (Follower & { following: Omit<User, 'passwordHash'> })[];
@@ -195,7 +189,7 @@ export class AuthController {
   async refreshToken(
     @Request() req: ExpressRequest,
     @Response({ passthrough: true }) res: ExpressResponse,
-  ): Promise<ResponseFromService<ITokenObject>> {
+  ): Promise<ResponseFromService> {
     const user = req.user as Omit<User, 'passwordHash'> &
     {
       followings: (Follower & { following: Omit<User, 'passwordHash'> })[];
@@ -209,6 +203,7 @@ export class AuthController {
       [accessToken, refreshToken],
       res,
     );
+
     return {
       message: 'Tokens refreshed successfully',
       data: {
@@ -229,6 +224,7 @@ export class AuthController {
     @Response({ passthrough: true }) res: ExpressResponse,
   ): ResponseFromService {
     clearCookies(res, 'access_token', 'refresh_token');
+
     return {
       message: 'Logged out successfully',
     };
@@ -260,12 +256,14 @@ export class AuthController {
     if (!success && url && !token) {
       res.redirect(url);
     }
+
     if (success && !url && token) {
       setCookies(
         ['access_token', 'refresh_token'],
         [token.accessToken, token.refreshToken],
         res,
       );
+
       res.redirect(this.CLIENT_REDIRECT_SUCCESS_URL);
     }
   }
@@ -296,12 +294,14 @@ export class AuthController {
     if (!success && url && !token) {
       res.redirect(url);
     }
+
     if (success && !url && token) {
       setCookies(
         ['access_token', 'refresh_token'],
         [token.accessToken, token.refreshToken],
         res,
       );
+
       res.redirect(this.CLIENT_REDIRECT_SUCCESS_URL);
     }
   }
