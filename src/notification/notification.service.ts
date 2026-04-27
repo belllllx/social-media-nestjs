@@ -213,6 +213,14 @@ export class NotificationService {
       }
 
       if (error instanceof HttpException) {
+        const status = error.getStatus();
+
+        if (status >= 500) {
+          this.logger.error(error.message, error.stack);
+        } else {
+          this.logger.warn(error.message);
+        }
+
         throw error;
       }
 

@@ -78,7 +78,7 @@ export class EmailService {
       const otpHash = await hashSecret(otp);
 
       const mailOptions: IEmailOptions = {
-        from: '"bynsocial" <bynsocial@email.com>',
+        from: '"bynsocial" <no-reply@bynsocial.com>',
         to: email,
         subject: 'Verify Your Email',
         html: `<p>Enter <b>${otp}</b> in the page to verify your email address and complete to reset password process.</p>
@@ -126,6 +126,14 @@ export class EmailService {
       }
 
       if (error instanceof HttpException) {
+        const status = error.getStatus();
+
+        if (status >= 500) {
+          this.logger.error(error.message, error.stack);
+        } else {
+          this.logger.warn(error.message);
+        }
+
         throw error;
       }
 
@@ -152,7 +160,7 @@ export class EmailService {
       const otpHash = await hashSecret(otp);
 
       const mailOptions: IEmailOptions = {
-        from: '"bynsocial" <bynsocial@email.com>',
+        from: '"bynsocial" <no-reply@bynsocial.com>',
         to: email,
         subject: 'Verify Your Email',
         html: `<p>Enter <b>${otp}</b> in the page to verify your email address and complete to register process.</p>
@@ -291,6 +299,14 @@ export class EmailService {
       }
 
       if (error instanceof HttpException) {
+        const status = error.getStatus();
+
+        if (status >= 500) {
+          this.logger.error(error.message, error.stack);
+        } else {
+          this.logger.warn(error.message);
+        }
+
         throw error;
       }
 
@@ -340,7 +356,7 @@ export class EmailService {
     } catch (error: unknown) {
       if (
         error instanceof PrismaClientKnownRequestError
-        && 
+        &&
         error.code === 'P2000'
       ) {
         this.logger.warn(error.message);
@@ -367,6 +383,14 @@ export class EmailService {
       }
 
       if (error instanceof HttpException) {
+        const status = error.getStatus();
+
+        if (status >= 500) {
+          this.logger.error(error.message, error.stack);
+        } else {
+          this.logger.warn(error.message);
+        }
+
         throw error;
       }
 

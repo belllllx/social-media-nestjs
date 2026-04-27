@@ -137,6 +137,14 @@ export class CommentService {
       }
 
       if (error instanceof HttpException) {
+        const status = error.getStatus();
+
+        if (status >= 500) {
+          this.logger.error(error.message, error.stack);
+        } else {
+          this.logger.warn(error.message);
+        }
+
         throw error;
       }
 
@@ -302,6 +310,14 @@ export class CommentService {
       }
 
       if (error instanceof HttpException) {
+        const status = error.getStatus();
+
+        if (status >= 500) {
+          this.logger.error(error.message, error.stack);
+        } else {
+          this.logger.warn(error.message);
+        }
+
         throw error;
       }
 
@@ -501,6 +517,14 @@ export class CommentService {
       }
 
       if (error instanceof HttpException) {
+        const status = error.getStatus();
+
+        if (status >= 500) {
+          this.logger.error(error.message, error.stack);
+        } else {
+          this.logger.warn(error.message);
+        }
+
         throw error;
       }
 
@@ -711,6 +735,14 @@ export class CommentService {
       }
 
       if (error instanceof HttpException) {
+        const status = error.getStatus();
+
+        if (status >= 500) {
+          this.logger.error(error.message, error.stack);
+        } else {
+          this.logger.warn(error.message);
+        }
+
         throw error;
       }
 
@@ -875,6 +907,14 @@ export class CommentService {
       }
 
       if (error instanceof HttpException) {
+        const status = error.getStatus();
+
+        if (status >= 500) {
+          this.logger.error(error.message, error.stack);
+        } else {
+          this.logger.warn(error.message);
+        }
+
         throw error;
       }
 
@@ -1120,6 +1160,14 @@ export class CommentService {
       }
 
       if (error instanceof HttpException) {
+        const status = error.getStatus();
+
+        if (status >= 500) {
+          this.logger.error(error.message, error.stack);
+        } else {
+          this.logger.warn(error.message);
+        }
+
         throw error;
       }
 
@@ -1238,6 +1286,14 @@ export class CommentService {
       }
 
       if (error instanceof HttpException) {
+        const status = error.getStatus();
+
+        if (status >= 500) {
+          this.logger.error(error.message, error.stack);
+        } else {
+          this.logger.warn(error.message);
+        }
+
         throw error;
       }
 
@@ -1246,8 +1302,8 @@ export class CommentService {
   }
 
   async like(
-    activeUserId: string, 
-    postId: string, 
+    activeUserId: string,
+    postId: string,
     commentId: string
   ) {
     try {
@@ -1365,6 +1421,14 @@ export class CommentService {
       }
 
       if (error instanceof HttpException) {
+        const status = error.getStatus();
+
+        if (status >= 500) {
+          this.logger.error(error.message, error.stack);
+        } else {
+          this.logger.warn(error.message);
+        }
+
         throw error;
       }
 
