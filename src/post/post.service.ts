@@ -1,7 +1,6 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import {
   BadRequestException,
-  HttpException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -40,6 +39,7 @@ import { CreateSharePostDto } from './dto/create-share-post.dto';
 import { Logger } from '@nestjs/common';
 import { getUserImage } from 'src/utils/helpers/get-user-image';
 import { updateUsersPostLike } from 'src/utils/helpers/update-user-content-like';
+import { catchErrors } from 'src/utils/helpers/catch-errors';
 import { Express } from 'express';
 
 @Injectable()
@@ -111,23 +111,7 @@ export class PostService {
         filesUrl,
       };
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot create post files');
     }
@@ -255,23 +239,7 @@ export class PostService {
 
       throw new BadRequestException('Cannot create post');
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot create post');
     }
@@ -373,23 +341,7 @@ export class PostService {
         },
       };
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot create share post');
     }
@@ -512,11 +464,7 @@ export class PostService {
         nextCursor,
       };
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot find posts');
     }
@@ -620,23 +568,7 @@ export class PostService {
         filesUrl: filesFromS3,
       };
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot find post by id');
     }
@@ -764,11 +696,7 @@ export class PostService {
         nextCursor,
       };
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot find post by user');
     }
@@ -1062,23 +990,7 @@ export class PostService {
 
       throw new UnprocessableEntityException('Error cannot update post');
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot update post');
     }
@@ -1170,23 +1082,7 @@ export class PostService {
 
       return deletedPost;
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot delete post');
     }
@@ -1217,23 +1113,7 @@ export class PostService {
         deleteFileFromS3(file, this.configService, this.s3),
       ]);
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot delete post file');
     }
@@ -1339,23 +1219,7 @@ export class PostService {
         },
       };
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot like or unlike post');
     }

@@ -1,5 +1,4 @@
 import {
-  HttpException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -11,6 +10,7 @@ import { Logger } from '@nestjs/common';
 import { getUserImage } from 'src/utils/helpers/get-user-image';
 import { S3Client } from '@aws-sdk/client-s3';
 import { ConfigService } from '@nestjs/config';
+import { catchErrors } from 'src/utils/helpers/catch-errors';
 
 @Injectable()
 export class NotificationService {
@@ -54,11 +54,7 @@ export class NotificationService {
         sender: userUpdated,
       }
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot create notification');
     }
@@ -96,11 +92,7 @@ export class NotificationService {
 
       return updatedNotificationsWithSender;
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot create notifications');
     }
@@ -161,11 +153,7 @@ export class NotificationService {
         nextCursor,
       };
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot find notifications pagination');
     }
@@ -206,23 +194,7 @@ export class NotificationService {
         sender: userUpdated,
       }
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot read notification');
     }
@@ -263,11 +235,7 @@ export class NotificationService {
 
       return updatedNotifies;
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot find notifications');
     }
@@ -328,11 +296,7 @@ export class NotificationService {
 
       return notification;
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot find notification by user');
     }
@@ -366,11 +330,7 @@ export class NotificationService {
         ),
       );
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot delete notification');
     }

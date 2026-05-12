@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  HttpException,
   Injectable,
   InternalServerErrorException,
   Logger
@@ -15,6 +14,7 @@ import { createJwt } from 'src/utils/helpers/create-jwt';
 import { createJwtUser } from 'src/utils/helpers/create-jwt-user';
 import * as bcrypt from 'bcrypt';
 import { EmailService } from 'src/email/email.service';
+import { catchErrors } from 'src/utils/helpers/catch-errors';
 
 @Injectable()
 export class AuthService {
@@ -45,11 +45,7 @@ export class AuthService {
 
       return null;
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot validate user');
     }
@@ -63,11 +59,7 @@ export class AuthService {
         this.configService
       );
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot login');
     }
@@ -98,23 +90,7 @@ export class AuthService {
         result,
       }
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot register');
     }
@@ -130,11 +106,7 @@ export class AuthService {
     try {
       return createJwtUser(user, this.jwtService, this.configService);
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot refresh token');
     }
@@ -227,11 +199,7 @@ export class AuthService {
         };
       }
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot login social');
     }

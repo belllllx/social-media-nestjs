@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  HttpException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -21,6 +20,7 @@ import * as bcrypt from 'bcrypt';
 import SMTPTransport from 'nodemailer/lib/smtp-transport';
 import { Logger } from '@nestjs/common';
 import { CreateUserWithoutEmailDto } from './dto/create-user-with-out-email.dto';
+import { catchErrors } from 'src/utils/helpers/catch-errors';
 
 @Injectable()
 export class EmailService {
@@ -38,7 +38,9 @@ export class EmailService {
     private userService: UserService,
   ) {
     this.transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
       auth: {
         user: configService.get<string>('GMAIL_USER'),
         pass: configService.get<string>('GMAIL_APP_PASSWORD'),
@@ -119,23 +121,7 @@ export class EmailService {
         throw new BadRequestException('Otp already exist in your email');
       }
 
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Failed to send email');
     }
@@ -219,11 +205,7 @@ export class EmailService {
         throw new BadRequestException("Some field is too long");
       }
 
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Failed to send email register');
     }
@@ -245,11 +227,7 @@ export class EmailService {
         throw new NotFoundException(`OTP for email ${email} not found`);
       }
 
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Failed to delete OTP');
     }
@@ -292,23 +270,7 @@ export class EmailService {
 
       return token;
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Failed to verify otp');
     }
@@ -376,23 +338,7 @@ export class EmailService {
         throw new BadRequestException("Some field is too long");
       }
 
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Failed to verify otp register');
     }

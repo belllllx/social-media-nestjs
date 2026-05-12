@@ -1,7 +1,6 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import {
   BadRequestException,
-  HttpException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -38,6 +37,7 @@ import { Logger } from '@nestjs/common';
 import { createTagUserNotification } from 'src/utils/helpers/create-tag-user-notification';
 import { getUserImage } from 'src/utils/helpers/get-user-image';
 import { updateUsersCommentLike, updateUsersReplies } from 'src/utils/helpers/update-user-content-like';
+import { catchErrors } from 'src/utils/helpers/catch-errors';
 import { Express } from 'express';
 
 @Injectable()
@@ -95,11 +95,7 @@ export class CommentService {
         fileUrl,
       };
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot create comment file');
     }
@@ -130,23 +126,7 @@ export class CommentService {
         deleteFileFromS3(file, this.configService, this.s3),
       ]);
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot delete comment file');
     }
@@ -303,23 +283,7 @@ export class CommentService {
 
       throw new BadRequestException('Cannot create comment');
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot create comment');
     }
@@ -510,23 +474,7 @@ export class CommentService {
         fileUrl: fileFromS3[0],
       };
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot create reply comment');
     }
@@ -728,23 +676,7 @@ export class CommentService {
         fileUrl: fileFromS3[0],
       };
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot create tag user comment');
     }
@@ -900,23 +832,7 @@ export class CommentService {
         nextCursor,
       };
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot find comments');
     }
@@ -1153,23 +1069,7 @@ export class CommentService {
 
       throw new UnprocessableEntityException('Error cannot update post');
     } catch (error) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot update comment');
     }
@@ -1279,23 +1179,7 @@ export class CommentService {
 
       return deletedComment;
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot delete comment');
     }
@@ -1414,23 +1298,7 @@ export class CommentService {
         },
       };
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(error.message, error.stack);
-      } else {
-        this.logger.error('Unknown error', JSON.stringify(error));
-      }
-
-      if (error instanceof HttpException) {
-        const status = error.getStatus();
-
-        if (status >= 500) {
-          this.logger.error(error.message, error.stack);
-        } else {
-          this.logger.warn(error.message);
-        }
-
-        throw error;
-      }
+      catchErrors(error, this.logger);
 
       throw new InternalServerErrorException('Cannot like or unlike comment');
     }
