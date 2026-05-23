@@ -13,12 +13,25 @@ import { ResetPasswordStrategy } from './strategies/reset-password.strategy';
 import { ForgotPasswordStrategy } from './strategies/forgot-password.strategy';
 import { RegisterStrategy } from './strategies/register.strategy';
 import { EmailModule } from 'src/email/email.module';
+import { ConfigService } from '@nestjs/config';
+import { CLIENT_REDIRECT_SUCCESS_URL } from 'src/utils/types';
+
+const clientRedirectSuccessUrlProvider = {
+  provide: CLIENT_REDIRECT_SUCCESS_URL,
+  useFactory: (configService: ConfigService) => {
+    const clientUrl = configService.get<string>('CLIENT_URL')!;
+    const clientRedirectSuccessPath = configService.get<string>('CLIENT_REDIRECT_SUCCESS_PATH')!;
+
+    return `${clientUrl}${clientRedirectSuccessPath}`;
+  },
+  inject: [ConfigService],
+}
 
 @Module({
   imports: [
     EmailModule,
-    UserModule, 
-    PassportModule, 
+    UserModule,
+    PassportModule,
     JwtModule.register({
       signOptions: {
         expiresIn: '5m',
@@ -27,6 +40,8 @@ import { EmailModule } from 'src/email/email.module';
   ],
   controllers: [AuthController],
   providers: [
+    clientRedirectSuccessUrlProvider,
+    ConfigService,
     AuthService,
     LocalStrategy,
     AtStrategy,
@@ -38,4 +53,4 @@ import { EmailModule } from 'src/email/email.module';
     RegisterStrategy,
   ],
 })
-export class AuthModule {}
+export class AuthModule { }

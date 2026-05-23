@@ -5,9 +5,11 @@ import { CommentGateway } from './comment.gateway';
 import { UserModule } from 'src/user/user.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { S3Module } from 'src/s3/s3.module';
 
 @Module({
   imports: [
+    S3Module,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

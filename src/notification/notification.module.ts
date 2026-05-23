@@ -4,10 +4,12 @@ import { NotificationService } from './notification.service';
 import { NotificationGateway } from './notification.gateway';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { S3Module } from 'src/s3/s3.module';
 
 @Global()
 @Module({
   imports: [
+    S3Module,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

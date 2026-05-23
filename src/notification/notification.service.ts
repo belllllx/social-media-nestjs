@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -11,29 +12,19 @@ import { getUserImage } from 'src/utils/helpers/get-user-image';
 import { S3Client } from '@aws-sdk/client-s3';
 import { ConfigService } from '@nestjs/config';
 import { catchErrors } from 'src/utils/helpers/catch-errors';
+import { S3_CLIENT } from 'src/utils/types';
 
 @Injectable()
 export class NotificationService {
-  private s3: S3Client;
-
   private readonly logger = new Logger(NotificationService.name);
 
   constructor(
-    configServiceParam: ConfigService,
+    @Inject(S3_CLIENT)
+    private s3: S3Client,
+
     private configService: ConfigService,
     private prismaService: PrismaService,
-  ) {
-    this.s3 = new S3Client({
-      region: configServiceParam.get<string>('AWS_BUCKET_REGION')!,
-      endpoint: configServiceParam.get<string>('R2_ENDPOINT')!,
-      credentials: {
-        accessKeyId: configServiceParam.get<string>('AWS_ACCESS_KEY')!,
-        secretAccessKey: configServiceParam.get<string>(
-          'AWS_SECRET_ACCESS_KEY',
-        )!,
-      },
-    });
-  }
+  ) { }
 
   async create(createNotificationDto: CreateNotificationDto) {
     try {

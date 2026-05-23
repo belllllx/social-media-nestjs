@@ -1,6 +1,7 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import {
   BadRequestException,
+  Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -16,7 +17,7 @@ import { genFilesName } from 'src/utils/helpers/gen-files-name';
 import { getFileDirFromFileMulter } from 'src/utils/helpers/get-file-dir-from-file-multer';
 import { putObjectS3 } from 'src/utils/helpers/put-object-s3';
 import { getObjectS3 } from 'src/utils/helpers/get-object-s3';
-import { FileDir } from 'src/utils/types';
+import { FileDir, S3_CLIENT } from 'src/utils/types';
 import {
   ContentType,
   NotificationType,
@@ -42,29 +43,19 @@ import { Express } from 'express';
 
 @Injectable()
 export class CommentService {
-  private s3: S3Client;
   private readonly logger = new Logger(CommentService.name);
 
   constructor(
-    configServiceParam: ConfigService,
+    @Inject(S3_CLIENT) 
+    private s3: S3Client,
+    
     private configService: ConfigService,
     private prismaService: PrismaService,
     private notificationService: NotificationService,
     private userService: UserService,
     private notificationGateway: NotificationGateway,
     private commentGateway: CommentGateway,
-  ) {
-    this.s3 = new S3Client({
-      region: configServiceParam.get<string>('AWS_BUCKET_REGION')!,
-      endpoint: configServiceParam.get<string>('R2_ENDPOINT')!,
-      credentials: {
-        accessKeyId: configServiceParam.get<string>('AWS_ACCESS_KEY')!,
-        secretAccessKey: configServiceParam.get<string>(
-          'AWS_SECRET_ACCESS_KEY',
-        )!,
-      },
-    });
-  }
+  ) { }
 
   async createFile(file: Express.Multer.File) {
     try {

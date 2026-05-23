@@ -3,6 +3,25 @@ import { EmailController } from './email.controller';
 import { EmailService } from './email.service';
 import { JwtModule } from '@nestjs/jwt';
 import { UserModule } from 'src/user/user.module';
+import { TRANSPORTER } from 'src/utils/types';
+import { ConfigService } from '@nestjs/config';
+import * as nodemailer from 'nodemailer';
+
+const transporterProvider = {
+  provide: TRANSPORTER,
+  useFactory: (configService: ConfigService) => {
+    return nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+      auth: {
+        user: configService.get<string>('GMAIL_USER'),
+        pass: configService.get<string>('GMAIL_APP_PASSWORD'),
+      },
+    });
+  },
+  inject: [ConfigService],
+}
 
 @Module({
   imports: [
@@ -14,7 +33,11 @@ import { UserModule } from 'src/user/user.module';
     UserModule,
   ],
   controllers: [EmailController],
-  providers: [EmailService],
+  providers: [
+    transporterProvider,
+    ConfigService,
+    EmailService,
+  ],
   exports: [EmailService],
 })
-export class EmailModule {}
+export class EmailModule { }

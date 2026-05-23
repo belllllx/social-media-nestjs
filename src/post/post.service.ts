@@ -1,6 +1,7 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import {
   BadRequestException,
+  Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -25,7 +26,7 @@ import { UpdatePostDto } from './dto/update-post.dto';
 import { deleteObjectS3 } from 'src/utils/helpers/delete-object-s3';
 import { getFileDirFromFileMulter } from 'src/utils/helpers/get-file-dir-from-file-multer';
 import { getFileDirFromPresignedUrl } from 'src/utils/helpers/get-file-dir-from-presigned-url';
-import { FileDir } from 'src/utils/types';
+import { FileDir, S3_CLIENT } from 'src/utils/types';
 import { NotificationService } from 'src/notification/notification.service';
 import { createNotifications } from 'src/utils/helpers/create-notifications';
 import { createNotification } from 'src/utils/helpers/create-notification';
@@ -44,29 +45,19 @@ import { Express } from 'express';
 
 @Injectable()
 export class PostService {
-  private s3: S3Client;
   private readonly logger = new Logger(PostService.name);
 
   constructor(
-    configServiceParam: ConfigService,
+    @Inject(S3_CLIENT)
+    private s3: S3Client,
+    
     private configService: ConfigService,
     private prismaService: PrismaService,
     private notificationService: NotificationService,
     private userService: UserService,
     private notificationGateway: NotificationGateway,
     private postGateway: PostGateway,
-  ) {
-    this.s3 = new S3Client({
-      region: configServiceParam.get<string>('AWS_BUCKET_REGION')!,
-      endpoint: configServiceParam.get<string>('R2_ENDPOINT')!,
-      credentials: {
-        accessKeyId: configServiceParam.get<string>('AWS_ACCESS_KEY')!,
-        secretAccessKey: configServiceParam.get<string>(
-          'AWS_SECRET_ACCESS_KEY',
-        )!,
-      },
-    });
-  }
+  ) { }
 
   async createFiles(files: Express.Multer.File[]) {
     try {

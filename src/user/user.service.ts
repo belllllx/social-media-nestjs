@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -10,7 +11,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { PrismaClientKnownRequestError } from 'generated/prisma/runtime/library';
 import { hashSecret } from 'src/utils/helpers/hash-secret';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { CreateSocialUserDto } from 'src/utils/types';
+import { CreateSocialUserDto, S3_CLIENT } from 'src/utils/types';
 import { formatString } from 'src/utils/helpers/format-string';
 import { NotificationService } from 'src/notification/notification.service';
 import { NotificationGateway } from 'src/notification/notification.gateway';
@@ -36,28 +37,18 @@ import { Express } from 'express';
 
 @Injectable()
 export class UserService {
-  private s3: S3Client;
   private readonly logger = new Logger(UserService.name);
 
   constructor(
-    configServiceParam: ConfigService,
+    @Inject(S3_CLIENT)
+    private s3: S3Client,
+
     private prismaService: PrismaService,
     private notificationService: NotificationService,
     private notificationGateway: NotificationGateway,
     private userGateway: UserGateway,
     private configService: ConfigService,
-  ) {
-    this.s3 = new S3Client({
-      region: configServiceParam.get<string>('AWS_BUCKET_REGION')!,
-      endpoint: configServiceParam.get<string>('R2_ENDPOINT')!,
-      credentials: {
-        accessKeyId: configServiceParam.get<string>('AWS_ACCESS_KEY')!,
-        secretAccessKey: configServiceParam.get<string>(
-          'AWS_SECRET_ACCESS_KEY',
-        )!,
-      },
-    });
-  }
+  ) { }
 
   async findOne(username: string) {
     return await this.prismaService.user.findUnique({

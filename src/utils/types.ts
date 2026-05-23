@@ -1,6 +1,12 @@
 import { ContentType } from 'generated/prisma';
 import { CreateUserDto } from 'src/user/dto/create-user.dto';
 
+export const CLIENT_REDIRECT_SUCCESS_URL = 'CLIENT_REDIRECT_SUCCESS_URL';
+
+export const TRANSPORTER = 'TRANSPORTER';
+
+export const S3_CLIENT = 'S3_CLIENT';
+
 export type JwtPayload<T extends Record<string, unknown>> = {
   iat: number;
   exp: number;

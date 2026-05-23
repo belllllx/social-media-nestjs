@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
   Post,
   Request,
   Response,
@@ -32,6 +33,7 @@ import { AtAuthGuard } from './guards/at-auth.guard';
 import { RtAuthGuard } from './guards/rt-auth.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import {
+  CLIENT_REDIRECT_SUCCESS_URL,
   ISocialUserPayload,
   JwtPayload,
   ResponseFromService,
@@ -39,7 +41,6 @@ import {
 import { GithubAuthGuard } from './guards/github-auth.guard';
 import { setCookies } from 'src/utils/helpers/set-cookies';
 import { clearCookies } from 'src/utils/helpers/clear-cookies';
-import { ConfigService } from '@nestjs/config';
 import { RegisterAuthGuard } from './guards/register-auth.guard';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { EmailService } from 'src/email/email.service';
@@ -47,21 +48,13 @@ import { CreateUserWithoutEmailDto } from 'src/email/dto/create-user-with-out-em
 
 @Controller('auth')
 export class AuthController {
-  private CLIENT_URL: string;
-  private CLIENT_REDIRECT_SUCCESS_PATH: string;
-  private CLIENT_REDIRECT_SUCCESS_URL: string;
-
   constructor(
+    @Inject(CLIENT_REDIRECT_SUCCESS_URL)
+    private CLIENT_REDIRECT_SUCCESS_URL: string,
+
     private emailService: EmailService,
     private authService: AuthService,
-    private configService: ConfigService,
-  ) {
-    this.CLIENT_URL = this.configService.get<string>('CLIENT_URL')!;
-    this.CLIENT_REDIRECT_SUCCESS_PATH = this.configService.get<string>(
-      'CLIENT_REDIRECT_SUCCESS_PATH',
-    )!;
-    this.CLIENT_REDIRECT_SUCCESS_URL = `${this.CLIENT_URL}${this.CLIENT_REDIRECT_SUCCESS_PATH}`;
-  }
+  ) { }
 
   @UseGuards(LocalAuthGuard)
   @Post('login')

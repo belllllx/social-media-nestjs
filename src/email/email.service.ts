@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -9,7 +10,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { SendEmailDto } from './dto/send-email.dto';
 import { hashSecret } from 'src/utils/helpers/hash-secret';
 import { PrismaClientKnownRequestError } from 'generated/prisma/runtime/library';
-import { IEmailOptions } from 'src/utils/types';
+import { IEmailOptions, TRANSPORTER } from 'src/utils/types';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ProviderType } from 'generated/prisma';
 import { JwtService } from '@nestjs/jwt';
@@ -24,29 +25,20 @@ import { catchErrors } from 'src/utils/helpers/catch-errors';
 
 @Injectable()
 export class EmailService {
-  private transporter: nodemailer.Transporter<
-    SMTPTransport.SentMessageInfo,
-    SMTPTransport.Options
-  >;
   private readonly logger = new Logger(EmailService.name);
 
   constructor(
-    configService: ConfigService,
+    @Inject(TRANSPORTER)
+    private transporter: nodemailer.Transporter<
+      SMTPTransport.SentMessageInfo,
+      SMTPTransport.Options
+    >,
+
     private prismaService: PrismaService,
     private jwtService: JwtService,
     private configServiceP: ConfigService,
     private userService: UserService,
-  ) {
-    this.transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: configService.get<string>('GMAIL_USER'),
-        pass: configService.get<string>('GMAIL_APP_PASSWORD'),
-      },
-    });
-  }
+  ) { }
 
   async sendEmail(sendEmailDto: SendEmailDto) {
     const { email } = sendEmailDto;
